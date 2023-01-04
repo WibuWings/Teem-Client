@@ -1,0 +1,106 @@
+// JSON actions
+const fetchJSON = (filePath) => {
+  return fetch(`/veact-admin/__demo__/mock/${filePath}.json`).then((response) => response.json())
+}
+// first fetch cache data map
+const _cacheData = new Map()
+const ensureJSON = async (filePath) => {
+  if (_cacheData.has(filePath)) {
+    return _cacheData.get(filePath)
+  } else {
+    const data = await fetchJSON(filePath)
+    _cacheData.set(filePath, data)
+    return data
+  }
+}
+
+// mock token
+console.info('mock token')
+window.localStorage.setItem('id_token', 'veact_admin.mock.token')
+
+// mock by axios adapter
+console.info('mock axios')
+window.__axiosAdapter = (config) => {
+  console.debug('mock request:', config)
+  const handlers = {
+    '/auth/login': {
+      post: () => ensureJSON('auth/login'),
+    },
+    '/auth/check': {
+      post: () => ensureJSON('auth/check'),
+    },
+    '/auth/admin': {
+      get: () => ensureJSON('auth/admin'),
+    },
+    '/expansion/statistic': {
+      get: () => ensureJSON('expansion/statistic'),
+    },
+    '/expansion/google-token': {
+      get: () => ensureJSON('expansion/google-token'),
+    },
+    '/expansion/uptoken': {
+      get: () => ensureJSON('expansion/uptoken'),
+    },
+    '/announcement': {
+      get: () => ensureJSON('announcement'),
+    },
+    '/category': {
+      get: () => ensureJSON('category'),
+    },
+    '/tag': {
+      get: () => ensureJSON('tag'),
+    },
+    '/comment': {
+      get: () => ensureJSON('comment'),
+    },
+    '/disqus/config': {
+      get: () => ensureJSON('disqus/config'),
+    },
+    '/option': {
+      get: () => ensureJSON('option'),
+    },
+    '/article': {
+      get: () => ensureJSON('article/list'),
+    },
+    '/article/calendar': {
+      get: () => ensureJSON('article/calendar'),
+    },
+    '/article/612c81321a53290533a7b782': {
+      get: () => ensureJSON('article/612c81321a53290533a7b782'),
+    },
+    '/article/610c29438a907384c63fef00': {
+      get: () => ensureJSON('article/610c29438a907384c63fef00'),
+    },
+    '/article/61030f5fcf1faa098ee126b2': {
+      get: () => ensureJSON('article/61030f5fcf1faa098ee126b2'),
+    },
+  }
+
+  return new Promise(async (resolve) => {
+    const target = handlers?.[config.url]?.[config.method]
+    if (target) {
+      return resolve({
+        status: 200,
+        statusText: 'OK',
+        headers: {
+          'content-type': 'application/json',
+        },
+        data: await target(),
+      })
+    } else {
+      return resolve({
+        status: 400,
+        statusText: 'ERROR',
+        headers: {
+          'content-type': 'application/json',
+        },
+        data: {
+          status: 'error',
+          message: 'Operation failed',
+          error: 'Demo Site does not support this data operation',
+          result: null,
+        },
+      })
+    }
+  })
+}

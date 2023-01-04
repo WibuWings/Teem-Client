@@ -1,0 +1,39 @@
+{
+  "status": "success",
+  "message": "获取设置成功",
+  "result": {
+    "keywords": ["Veact", "JavaScript"],
+    "ad_config": "",
+    "_id": "589e01b75af07d59124234cd",
+    "title": "Blog name",
+    "sub_title": "sub title",
+    "description": "site description",
+    "site_url": "https://zinisoft.net",
+    "site_email": "admin@example.com",
+    "site_icp": "",
+    "blocklist": {
+      "ips": [
+        "115.220.179.189",
+        "113.88.157.115",
+        "101.84.13.253",
+        "101.84.184.46",
+        "60.26.180.200",
+        "113.89.148.239",
+        "223.91.14.253"
+      ],
+      "mails": [
+        "test@gmail.cmo",
+        "example@gmail.com",
+        "spam@qq.com",
+        "ham@163.com",
+        "1@qq.com",
+        "q@qq.com",
+        "e@qq.com",
+        "sfsfsfs@email.com"
+      ],
+      "keywords": ["asd", "sss", "阿什顿发", "dsds", "asasas", "sdf", "test", "阿萨德"]
+    },
+    "meta": { "likes": 600 },
+    "update_at": "2019-01-23T17:44:13.425Z"
+  }
+}
