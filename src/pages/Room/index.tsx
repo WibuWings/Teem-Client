@@ -9,6 +9,7 @@ import styles from './style.module.less'
 import { rc, RouteKey } from '@/routes'
 import { UserGrid } from './components/UserGrid/UserGrid'
 import { IncallMessage } from './components/IncallMessage'
+import { UserFrame } from './components/UserFrame'
 
 type RoomParams = {
   roomID: string
@@ -20,6 +21,10 @@ export function Room() {
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(false)
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setOpenCamera] = useState(false)
+
+  const numberOfUser = 10
+  const users = [...Array(numberOfUser).keys()]
+  const [pinUser, setPinUser] = useState<number | undefined>(users[0])
 
   const [messageApi, contextHolder] = message.useMessage()
 
@@ -81,7 +86,24 @@ export function Room() {
             size="large"
           ></Button>
         </Space>
-        <UserGrid />
+        <UserGrid
+          pinUser={pinUser}
+          users={users}
+          renderItems={(item, idx) => (
+            <UserFrame
+              key={idx}
+              user={item}
+              isPin={pinUser === item}
+              onClickPin={(user) => {
+                if (user === pinUser) {
+                  setPinUser(undefined)
+                } else {
+                  setPinUser(user)
+                }
+              }}
+            />
+          )}
+        />
       </Layout.Content>
       <Layout.Sider
         collapsible={true}

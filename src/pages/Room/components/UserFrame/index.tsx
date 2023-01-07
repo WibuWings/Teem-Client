@@ -1,11 +1,19 @@
 import { Button, Space } from 'antd'
-import React, { useState } from 'react'
+import React, { ReactElement, useState } from 'react'
 import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { rc, RouteKey } from '@/routes'
 import styles from './style.module.less'
 
-export function UserFrame() {
+export function UserFrame<Type>({
+  user,
+  isPin,
+  onClickPin,
+}: {
+  user: Type
+  isPin: boolean
+  onClickPin: (user: Type) => void
+}): ReactElement {
   const params = useParams()
   const navigate = useNavigate()
   const [isOpenMic, setIsOpenMic] = useState(false)
@@ -44,9 +52,11 @@ export function UserFrame() {
           size="small"
         ></Button>
         <Button
-          type={isOpenMic ? 'primary' : 'default'}
-          onClick={toggleOpenMic}
-          icon={isOpenMic ? <Icon.PushpinOutlined /> : <Icon.PushpinOutlined />}
+          type={isPin ? 'primary' : 'default'}
+          onClick={() => {
+            onClickPin(user)
+          }}
+          icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
         <Button
@@ -57,6 +67,11 @@ export function UserFrame() {
           size="small"
         ></Button>
       </Space>
+      {user}
     </div>
   )
+}
+
+export function OverflowUser({ numberOverflow }: { numberOverflow: number }) {
+  return <div className={styles['user-frame']}>+{numberOverflow}</div>
 }
