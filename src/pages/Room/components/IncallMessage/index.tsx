@@ -35,7 +35,6 @@ export function IncallMessage(props: Props) {
 
   useEffect(() => {
     socket.on(SOCKET_EVENT.ON.RECEIVE_MESSAGE, (data: any) => {
-      console.log(data)
       dispatch(pushMessage(data))
     })
 

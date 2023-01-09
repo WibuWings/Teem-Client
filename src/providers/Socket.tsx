@@ -1,7 +1,7 @@
-import { BASE_PATH } from '@/config'
-import React, { ReactChildren, ReactElement, useMemo } from 'react'
+import { API_URL } from '@/config'
+import React, { ReactElement } from 'react'
 import { io, Socket } from 'socket.io-client'
-const socket = io(BASE_PATH)
+const socket = io(API_URL)
 export const SocketContext = React.createContext<{ socket: Socket<any, any> }>({
   socket: socket,
 })

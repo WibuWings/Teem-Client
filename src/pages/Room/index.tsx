@@ -1,4 +1,4 @@
-import { Button, Card, Drawer, Input, Layout, message, notification, Space } from 'antd'
+import { Button, Card, Drawer, Input, Layout, message, notification, Space, Spin } from 'antd'
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as Icon from '@ant-design/icons'
@@ -16,6 +16,7 @@ import { pushNewUserToRoom, removeUserFromRoom } from './slice'
 import { SocketProvider, SOCKET_EVENT } from '@/providers/Socket'
 import { useJoinRoomMutation } from './apiSlice'
 import { JoinRoomDTO, User } from './model'
+import { is } from 'immer/dist/internal'
 
 type RoomParams = {
   roomCode: string
@@ -100,110 +101,112 @@ export function Room() {
 
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   return (
-    <Layout className={styles.room}>
-      {messageContextHolder}
-      {!isInLobby ? (
-        <>
-          <Layout.Content style={{ position: 'relative' }}>
-            <Space className={styles['btn-control']}>
-              <Button
-                type={isOpenMic ? 'primary' : 'default'}
-                onClick={toggleOpenMic}
-                icon={isOpenMic ? <Icon.AudioOutlined /> : <Icon.AudioMutedOutlined />}
-                size="large"
-              ></Button>
-              <Button
-                type={isOpenCamera ? 'primary' : 'default'}
-                onClick={toggleOpenCamera}
-                icon={isOpenCamera ? <Icon.CameraOutlined /> : <Icon.CameraOutlined />}
-                size="large"
-              ></Button>
-              <Button
-                type={isCollapsedMessage ? 'default' : 'primary'}
-                onClick={toggleCollapsMessage}
-                icon={<Icon.MessageOutlined />}
-                size="large"
-              ></Button>
-              <Button
-                type={isCollapsedMessage ? 'default' : 'primary'}
-                onClick={toggleCollapsMessage}
-                icon={<Icon.LaptopOutlined />}
-                size="large"
-              ></Button>
-              <Button
-                type={isCollapsedMessage ? 'default' : 'primary'}
-                onClick={toggleCollapsMessage}
-                icon={<Icon.TeamOutlined />}
-                size="large"
-              ></Button>
-              <Button onClick={info} icon={<Icon.AlertOutlined />} size="large"></Button>
-              <Button
-                onClick={leaveCall}
-                icon={<Icon.LogoutOutlined />}
-                danger
-                type="primary"
-                size="large"
-              ></Button>
-            </Space>
-            <UserGrid
-              pinUser={pinUser}
-              users={users}
-              renderItems={(item, idx) => (
-                <UserFrame
-                  key={idx}
-                  user={item}
-                  isPin={pinUser === item}
-                  onClickPin={(user) => {
-                    if (user === pinUser) {
-                      setPinUser(undefined)
-                    } else {
-                      setPinUser(user)
-                    }
-                  }}
-                />
-              )}
+    <Spin spinning={isLoadingJoinRoom}>
+      <Layout className={styles.room}>
+        {messageContextHolder}
+        {!isInLobby ? (
+          <>
+            <Layout.Content style={{ position: 'relative' }}>
+              <Space className={styles['btn-control']}>
+                <Button
+                  type={isOpenMic ? 'primary' : 'default'}
+                  onClick={toggleOpenMic}
+                  icon={isOpenMic ? <Icon.AudioOutlined /> : <Icon.AudioMutedOutlined />}
+                  size="large"
+                ></Button>
+                <Button
+                  type={isOpenCamera ? 'primary' : 'default'}
+                  onClick={toggleOpenCamera}
+                  icon={isOpenCamera ? <Icon.CameraOutlined /> : <Icon.CameraOutlined />}
+                  size="large"
+                ></Button>
+                <Button
+                  type={isCollapsedMessage ? 'default' : 'primary'}
+                  onClick={toggleCollapsMessage}
+                  icon={<Icon.MessageOutlined />}
+                  size="large"
+                ></Button>
+                <Button
+                  type={isCollapsedMessage ? 'default' : 'primary'}
+                  onClick={toggleCollapsMessage}
+                  icon={<Icon.LaptopOutlined />}
+                  size="large"
+                ></Button>
+                <Button
+                  type={isCollapsedMessage ? 'default' : 'primary'}
+                  onClick={toggleCollapsMessage}
+                  icon={<Icon.TeamOutlined />}
+                  size="large"
+                ></Button>
+                <Button onClick={info} icon={<Icon.AlertOutlined />} size="large"></Button>
+                <Button
+                  onClick={leaveCall}
+                  icon={<Icon.LogoutOutlined />}
+                  danger
+                  type="primary"
+                  size="large"
+                ></Button>
+              </Space>
+              <UserGrid
+                pinUser={pinUser}
+                users={users}
+                renderItems={(item, idx) => (
+                  <UserFrame
+                    key={idx}
+                    user={item}
+                    isPin={pinUser === item}
+                    onClickPin={(user) => {
+                      if (user === pinUser) {
+                        setPinUser(undefined)
+                      } else {
+                        setPinUser(user)
+                      }
+                    }}
+                  />
+                )}
+              />
+            </Layout.Content>
+            <Layout.Sider
+              collapsible={true}
+              collapsed={isCollapsedMessage}
+              trigger={null}
+              width={400}
+              collapsedWidth={0}
+            >
+              <IncallMessage isCollapsed={isCollapsedMessage} onCollapse={toggleCollapsMessage} />
+            </Layout.Sider>
+          </>
+        ) : (
+          <Layout.Content>
+            <Overlay
+              onEnterUserID={async (username) => {
+                const offer = await createOffer()
+                joinRoom({
+                  roomCode: searchParams.get('roomCode')!,
+                  username,
+                  socketId: socket.id,
+                })
+                  .unwrap()
+                  .then((value) => {
+                    // console.log(value)
+                    socket.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+                      roomCode: value.room.code,
+                      socketId: socket.id,
+                    })
+                  })
+                setIsInLobby(false)
+                // socket.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+                //   roomCode: searchParams.get('roomCode'),
+                //   username,
+                //   socketId: socket.id,
+                // } as JoinRoomDTO)
+                // socket.emit('call:offer', { roomCode: searchParams.get('roomCode'), userID, offer })
+                // dispatch(setroomCodeAndUserID({ userID, roomCode: searchParams.get('roomCode') ?? '' }))
+              }}
             />
           </Layout.Content>
-          <Layout.Sider
-            collapsible={true}
-            collapsed={isCollapsedMessage}
-            trigger={null}
-            width={400}
-            collapsedWidth={0}
-          >
-            <IncallMessage isCollapsed={isCollapsedMessage} onCollapse={toggleCollapsMessage} />
-          </Layout.Sider>
-        </>
-      ) : (
-        <Layout.Content>
-          <Overlay
-            onEnterUserID={async (username) => {
-              setIsInLobby(false)
-              const offer = await createOffer()
-              joinRoom({
-                roomCode: searchParams.get('roomCode')!,
-                username,
-                socketId: socket.id,
-              })
-                .unwrap()
-                .then((value) => {
-                  // console.log(value)
-                  socket.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-                    roomCode: value.room.code,
-                    socketId: socket.id,
-                  })
-                })
-              // socket.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-              //   roomCode: searchParams.get('roomCode'),
-              //   username,
-              //   socketId: socket.id,
-              // } as JoinRoomDTO)
-              // socket.emit('call:offer', { roomCode: searchParams.get('roomCode'), userID, offer })
-              // dispatch(setroomCodeAndUserID({ userID, roomCode: searchParams.get('roomCode') ?? '' }))
-            }}
-          />
-        </Layout.Content>
-      )}
-    </Layout>
+        )}
+      </Layout>
+    </Spin>
   )
 }
