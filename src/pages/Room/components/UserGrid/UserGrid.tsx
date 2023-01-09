@@ -20,7 +20,6 @@ export function UserGrid<Type>({
   const calculateRow = (numUser: number): number => {
     return Math.ceil(numUser / Math.ceil(Math.sqrt(numUser)))
   }
-  console.log(pinUser)
   return (
     <div className={styles.wrapper}>
       {pinUser !== undefined ? (

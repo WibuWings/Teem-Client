@@ -12,6 +12,8 @@ import { store } from './store'
 import { JoinRoom } from './pages/JoinRoom'
 import { Room } from './pages/Room'
 import { NotFoundPage } from './pages/NotFound'
+import { SocketProvider } from './providers/Socket'
+import { PeerProvider } from './providers/Peer'
 
 // Router: WORKAROUND for outside
 function RouterComponent(props: { children?: React.ReactNode }) {
@@ -29,16 +31,23 @@ export function App() {
 
   return (
     <Provider store={store}>
-      <div className="app" id="app">
-        <RouterComponent>
-          <Routes>
-            <Route index={true} element={<Navigate to={rc(RouteKey.JoinRoom).path} replace />} />
-            <Route path={rc(RouteKey.JoinRoom).path} element={<JoinRoom />} />
-            <Route path={rc(RouteKey.Room).path} element={<Room />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </RouterComponent>
-      </div>
+      <SocketProvider>
+        <PeerProvider>
+          <div className="app" id="app">
+            <RouterComponent>
+              <Routes>
+                <Route
+                  index={true}
+                  element={<Navigate to={rc(RouteKey.JoinRoom).path} replace />}
+                />
+                <Route path={rc(RouteKey.JoinRoom).path} element={<JoinRoom />} />
+                <Route path={rc(RouteKey.Room).path} element={<Room />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </RouterComponent>
+          </div>
+        </PeerProvider>
+      </SocketProvider>
     </Provider>
   )
 }

@@ -9,7 +9,15 @@ import styles from './style.module.less'
 
 export function JoinRoom() {
   const navigate = useNavigate()
-  const [form] = Form.useForm()
+  const [form] = Form.useForm<{ roomCode: string }>()
+
+  const handleJoinRoom = () =>
+    form
+      .validateFields()
+      .then((value) => {
+        navigate({ pathname: rc(RouteKey.Room).path, search: `?roomCode=${value.roomCode}` })
+      })
+      .catch((e) => console.error(e))
   return (
     <div className={styles['form-wrapper']}>
       <Card className={styles.card}>
@@ -21,25 +29,24 @@ export function JoinRoom() {
         <div>
           <h1>Some description</h1>
         </div>
-        <Form layout="inline">
+        <Form layout="inline" form={form}>
           <Form.Item
-            name="roomID"
+            name="roomCode"
             style={{ flex: 1 }}
             rules={[
               {
                 required: true,
                 message: 'Please enter a room ID',
               },
+              {
+                pattern: /^[a-zA-Z0-9-_]+$/,
+                message: 'roomCode contains only characters a-z, - , and digits',
+              },
             ]}
           >
             <Input></Input>
           </Form.Item>
-          <Button
-            type="primary"
-            onClick={() => {
-              navigate(rc(RouteKey.Room).path)
-            }}
-          >
+          <Button type="primary" onClick={handleJoinRoom}>
             JOIN ROOM
           </Button>
         </Form>
