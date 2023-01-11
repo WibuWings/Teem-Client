@@ -25,7 +25,10 @@ type RoomParams = {
 export function Room() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { socket } = useSocketContext()
-  const { peer, createOffer, createAnswer } = usePeerContext()
+  const { peer, createOffer, createAnswer, setRemoteAnswer, sendStream, remoteStream } =
+    usePeerContext()
+  const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
+
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const roomInfo = useAppSelector((state) => state.room)
@@ -38,9 +41,7 @@ export function Room() {
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setOpenCamera] = useState(false)
 
-  const numberOfUser = 10
-  const users = [...Array(numberOfUser).keys()]
-  const [pinUser, setPinUser] = useState<number | undefined>(users[0])
+  const [pinUser, setPinUser] = useState<User | undefined>()
 
   const [messageApi, messageContextHolder] = message.useMessage()
 
@@ -62,9 +63,40 @@ export function Room() {
     setOpenCamera((cur) => !cur)
   }
   const leaveCall = () => {
-    navigate(rc(RouteKey.JoinRoom).path)
+    // navigate(rc(RouteKey.JoinRoom).path)
+    socket.disconnect()
   }
 
+  const handleNewUserJoined = async () => {
+    const offer = await createOffer()
+    socket.emit(SOCKET_EVENT.EMIT.CALL_USER, { roomCode: roomInfo.code, offer })
+  }
+  const handleIncommingCall = async (data: any) => {
+    const ans = await createAnswer(data.offer)
+    socket.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
+  }
+  const handleCallAccepted = async (data) => {
+    console.log(data)
+    await setRemoteAnswer(data.ans)
+  }
+  const getMyMediaStream = async (camera: boolean, mic: boolean) => {
+    let All_mediaDevices = navigator.mediaDevices
+    if (!All_mediaDevices || !All_mediaDevices.getUserMedia) {
+      alert('Camera not supported.')
+      return
+    }
+
+    try {
+      const media = await All_mediaDevices.getUserMedia({
+        audio: mic,
+        video: camera,
+      })
+      setMediaStream(media)
+      sendStream(media)
+    } catch (err: any) {
+      console.log(err.name + ': ' + err.message)
+    }
+  }
   //handle not existing room
   useEffect(() => {
     if (!searchParams.get('roomCode')) {
@@ -72,12 +104,6 @@ export function Room() {
     } else {
     }
   }, [])
-
-  const handleAnswer = async (data: any) => {
-    const { offer, ...rest } = data
-    const answer = await createAnswer(offer)
-    socket.emit('call:accept', { ...rest, answer })
-  }
   // handle socket event
   useEffect(() => {
     // new user joined room
@@ -85,8 +111,13 @@ export function Room() {
       notification.info({
         message: `${user.username} joined room`,
       })
+      handleNewUserJoined()
       dispatch(pushNewUserToRoom(user))
     })
+    // new incoming caller
+    socket.on(SOCKET_EVENT.ON.INCOMMING_CALL, handleIncommingCall)
+    // accept incoming call
+    socket.on(SOCKET_EVENT.ON.CALL_ACCEPTED, handleCallAccepted)
     // user left room
     socket.on(SOCKET_EVENT.ON.USER_DISCONNECTED, (user: User) => {
       notification.info({
@@ -94,11 +125,26 @@ export function Room() {
       })
       dispatch(removeUserFromRoom(user.socketId))
     })
+    // disconnect
+    socket.on('disconnect', (reason) => {
+      console.log(reason)
+      if (reason === 'io server disconnect') {
+        // the disconnection was initiated by the server, you need to reconnect manually
+        socket.connect()
+      }
+      // else the socket will automatically try to reconnect
+    })
     return () => {
       socket.off(SOCKET_EVENT.ON.USER_CONNECTED)
+      socket.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
+      socket.off('disconnect')
     }
   }, [])
-
+  useEffect(() => {
+    if (isOpenCamera) {
+      getMyMediaStream(isOpenCamera, isOpenMic)
+    }
+  }, [isOpenCamera])
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   return (
     <Spin spinning={isLoadingJoinRoom}>
@@ -147,11 +193,11 @@ export function Room() {
                   size="large"
                 ></Button>
               </Space>
-              <UserGrid
+              <UserGrid<User>
                 pinUser={pinUser}
-                users={users}
+                users={roomInfo.members}
                 renderItems={(item, idx) => (
-                  <UserFrame
+                  <UserFrame<User>
                     key={idx}
                     user={item}
                     isPin={pinUser === item}
@@ -162,6 +208,7 @@ export function Room() {
                         setPinUser(user)
                       }
                     }}
+                    stream={item.socketId === socket.id ? mediaStream : remoteStream}
                   />
                 )}
               />

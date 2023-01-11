@@ -4,14 +4,17 @@ import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { rc, RouteKey } from '@/routes'
 import styles from './style.module.less'
+import ReactPlayer from 'react-player'
 
 export function UserFrame<Type>({
   user,
   isPin,
   onClickPin,
+  stream,
 }: {
   user: Type
   isPin: boolean
+  stream?: MediaStream
   onClickPin: (user: Type) => void
 }): ReactElement {
   const params = useParams()
@@ -67,7 +70,7 @@ export function UserFrame<Type>({
           size="small"
         ></Button>
       </Space>
-      {user}
+      <ReactPlayer url={stream} playing />
     </div>
   )
 }

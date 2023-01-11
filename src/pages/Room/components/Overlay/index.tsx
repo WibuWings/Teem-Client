@@ -16,8 +16,8 @@ export function Overlay(props: Props) {
   const [form] = Form.useForm<{ username: string }>()
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [isOpenMic, setIsOpenMic] = useState(true)
-  const [isOpenCamera, setOpenCamera] = useState(true)
+  const [isOpenMic, setIsOpenMic] = useState(false)
+  const [isOpenCamera, setOpenCamera] = useState(false)
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
 
   // enter id
