@@ -29,10 +29,7 @@ export const routeMap: ReadonlyMap<RouteKey, RouteConfig> = new Map(
     {
       id: RouteKey.Room,
       name: 'room',
-      path: '/room/:roomID',
-      pather(roomID: string) {
-        return generatePath(this.path, { _id: roomID })
-      },
+      path: '/room',
     },
   ].map((route) => [route.id, route])
 )

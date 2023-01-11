@@ -1,8 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit'
 
 import { apiSlice } from '@/pages/api'
+import roomSlice from '@/pages/Room/slice'
 export const store = configureStore({
   reducer: {
+    room: roomSlice,
     [apiSlice.reducerPath]: apiSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>

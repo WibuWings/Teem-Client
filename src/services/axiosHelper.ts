@@ -89,11 +89,11 @@ const headers: AxiosRequestHeaders = {
 // We get the `accessToken` from the localStorage that we set when we authenticate
 const injectToken = (config: AxiosRequestConfig): AxiosRequestConfig => {
   try {
-    if (token.isTokenValid()) {
-      if (config.headers !== undefined) {
-        config.headers[APP_AUTH_HEADER_KEY] = `Bearer ${token.getToken()}`
-      }
-    }
+    // if (token.isTokenValid()) {
+    //   if (config.headers !== undefined) {
+    //     config.headers[APP_AUTH_HEADER_KEY] = `Bearer ${token.getToken()}`
+    //   }
+    // }
     return config
   } catch (error: any) {
     throw new Error(error)
@@ -111,7 +111,7 @@ class Http {
     const http = axios.create({
       baseURL: API_URL,
       headers,
-      withCredentials: true,
+      withCredentials: false,
       timeout: 1000,
     })
 
