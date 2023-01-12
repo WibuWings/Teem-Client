@@ -1,5 +1,5 @@
 import { Button, Card, Drawer, Input, Layout, message, notification, Space, Spin } from 'antd'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as Icon from '@ant-design/icons'
 
@@ -23,35 +23,37 @@ type RoomParams = {
 }
 
 export function Room() {
+  // react hook
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const dispatch = useAppDispatch()
+  // socket & peer
   const { socket } = useSocketContext()
   const { peer, createOffer, createAnswer, setRemoteAnswer, sendStream, remoteStream } =
     usePeerContext()
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
 
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const roomInfo = useAppSelector((state) => state.room)
-
+  // room API
   const [joinRoom, { isLoading: isLoadingJoinRoom, error: errorJoinRoom }] = useJoinRoomMutation()
-
+  // state
+  const roomInfo = useAppSelector((state) => state.room)
   const [isInLobby, setIsInLobby] = useState(true)
-
-  const [isCollapsedMessage, setIsCollapsedMessage] = useState(false)
+  const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setOpenCamera] = useState(false)
-
   const [pinUser, setPinUser] = useState<User | undefined>()
-
+  const [remoteSocketId, setRemoteSocketId] = useState('')
+  useEffect(() => {
+    console.log(roomInfo)
+  }, [roomInfo])
+  // message notification context
   const [messageApi, messageContextHolder] = message.useMessage()
-
   const info = () => {
     messageApi.warning({
       content: 'hello',
       icon: <Icon.AlertFilled />,
     })
   }
-
   // controll handler
   const toggleCollapsMessage = () => {
     setIsCollapsedMessage((cur) => !cur)
@@ -64,39 +66,80 @@ export function Room() {
   }
   const leaveCall = () => {
     // navigate(rc(RouteKey.JoinRoom).path)
-    socket.disconnect()
+    socket?.disconnect()
   }
-
-  const handleNewUserJoined = async () => {
-    const offer = await createOffer()
-    socket.emit(SOCKET_EVENT.EMIT.CALL_USER, { roomCode: roomInfo.code, offer })
-  }
-  const handleIncommingCall = async (data: any) => {
-    const ans = await createAnswer(data.offer)
-    socket.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
-  }
-  const handleCallAccepted = async (data) => {
-    console.log(data)
-    await setRemoteAnswer(data.ans)
-  }
-  const getMyMediaStream = async (camera: boolean, mic: boolean) => {
-    let All_mediaDevices = navigator.mediaDevices
-    if (!All_mediaDevices || !All_mediaDevices.getUserMedia) {
-      alert('Camera not supported.')
-      return
-    }
-
-    try {
-      const media = await All_mediaDevices.getUserMedia({
-        audio: mic,
-        video: camera,
+  // socket event handler
+  const handleNewUserJoined = useCallback(
+    async (user: User) => {
+      notification.info({
+        message: `${user.username} joined room`,
       })
-      setMediaStream(media)
-      sendStream(media)
-    } catch (err: any) {
-      console.log(err.name + ': ' + err.message)
-    }
-  }
+      dispatch(pushNewUserToRoom(user))
+      setRemoteSocketId(user.socketId)
+    },
+    [socket, createOffer]
+  )
+  const handleNegotiation = useCallback(
+    async (data: any) => {
+      console.log('negotiation needed')
+      const localOffer = await createOffer?.()
+      console.log(roomInfo)
+      socket?.emit(SOCKET_EVENT.EMIT.CALL_USER, {
+        roomCode: 'room1',
+        offer: localOffer,
+      })
+    },
+    [peer?.localDescription, socket, roomInfo]
+  )
+  const handleIncommingCall = useCallback(
+    async (data: any) => {
+      console.log(data)
+      const ans = await createAnswer?.(data.offer)
+      socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
+    },
+    [socket, createAnswer]
+  )
+  const handleCallAccepted = useCallback(
+    async (data: any) => {
+      console.log(data)
+      await setRemoteAnswer?.(data.ans)
+    },
+    [setRemoteAnswer]
+  )
+
+  const handleUserDisconnected = useCallback(
+    (user: User) => {
+      notification.info({
+        message: `${user.username} left room`,
+      })
+      dispatch(removeUserFromRoom(user.socketId))
+    },
+    [socket]
+  )
+  const handleDisconnect = useCallback(
+    (reason: any) => {
+      console.log(reason)
+      if (reason === 'io server disconnect') {
+        socket?.connect()
+      }
+    },
+    [socket]
+  )
+  // get stream
+  const getMyMediaStream = useCallback(
+    async (camera: boolean, mic: boolean) => {
+      try {
+        const media = await navigator.mediaDevices.getUserMedia({
+          audio: mic,
+          video: camera,
+        })
+        setMediaStream(media)
+      } catch (err: any) {
+        console.log(err.name + ': ' + err.message)
+      }
+    },
+    [sendStream]
+  )
   //handle not existing room
   useEffect(() => {
     if (!searchParams.get('roomCode')) {
@@ -107,44 +150,40 @@ export function Room() {
   // handle socket event
   useEffect(() => {
     // new user joined room
-    socket.on(SOCKET_EVENT.ON.USER_CONNECTED, (user: User) => {
-      notification.info({
-        message: `${user.username} joined room`,
-      })
-      handleNewUserJoined()
-      dispatch(pushNewUserToRoom(user))
-    })
+    socket?.on(SOCKET_EVENT.ON.USER_CONNECTED, handleNewUserJoined)
     // new incoming caller
-    socket.on(SOCKET_EVENT.ON.INCOMMING_CALL, handleIncommingCall)
+    socket?.on(SOCKET_EVENT.ON.INCOMMING_CALL, handleIncommingCall)
     // accept incoming call
-    socket.on(SOCKET_EVENT.ON.CALL_ACCEPTED, handleCallAccepted)
+    socket?.on(SOCKET_EVENT.ON.CALL_ACCEPTED, handleCallAccepted)
     // user left room
-    socket.on(SOCKET_EVENT.ON.USER_DISCONNECTED, (user: User) => {
-      notification.info({
-        message: `${user.username} left room`,
-      })
-      dispatch(removeUserFromRoom(user.socketId))
-    })
+    socket?.on(SOCKET_EVENT.ON.USER_DISCONNECTED, handleUserDisconnected)
     // disconnect
-    socket.on('disconnect', (reason) => {
-      console.log(reason)
-      if (reason === 'io server disconnect') {
-        // the disconnection was initiated by the server, you need to reconnect manually
-        socket.connect()
-      }
-      // else the socket will automatically try to reconnect
-    })
+    socket?.on('disconnect', handleDisconnect)
     return () => {
-      socket.off(SOCKET_EVENT.ON.USER_CONNECTED)
-      socket.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
-      socket.off('disconnect')
+      socket?.off(SOCKET_EVENT.ON.USER_CONNECTED)
+      socket?.off(SOCKET_EVENT.ON.INCOMMING_CALL)
+      socket?.off(SOCKET_EVENT.ON.CALL_ACCEPTED)
+      socket?.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
+      socket?.off('disconnect')
     }
-  }, [])
+  }, [socket, handleNewUserJoined, handleIncommingCall, handleCallAccepted])
+
   useEffect(() => {
     if (isOpenCamera) {
-      getMyMediaStream(isOpenCamera, isOpenMic)
+      getMyMediaStream(isOpenCamera, false)
     }
   }, [isOpenCamera])
+
+  useEffect(() => {
+    if (mediaStream) sendStream?.(mediaStream)
+  }, [mediaStream, sendStream])
+
+  useEffect(() => {
+    peer?.addEventListener('negotiationneeded', handleNegotiation)
+    return () => {
+      peer?.removeEventListener('negotiationneeded', handleNegotiation)
+    }
+  }, [peer])
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   return (
     <Spin spinning={isLoadingJoinRoom}>
@@ -194,6 +233,7 @@ export function Room() {
                 ></Button>
               </Space>
               <UserGrid<User>
+                key={remoteStream ? 'true' : 'false'}
                 pinUser={pinUser}
                 users={roomInfo.members}
                 renderItems={(item, idx) => (
@@ -208,7 +248,8 @@ export function Room() {
                         setPinUser(user)
                       }
                     }}
-                    stream={item.socketId === socket.id ? mediaStream : remoteStream}
+                    stream={item.socketId === socket?.id ? mediaStream : remoteStream}
+                    muted={item.socketId === socket?.id}
                   />
                 )}
               />
@@ -227,28 +268,20 @@ export function Room() {
           <Layout.Content>
             <Overlay
               onEnterUserID={async (username) => {
-                const offer = await createOffer()
                 joinRoom({
                   roomCode: searchParams.get('roomCode')!,
                   username,
-                  socketId: socket.id,
+                  socketId: socket?.id ?? '',
                 })
                   .unwrap()
                   .then((value) => {
                     // console.log(value)
-                    socket.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+                    socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
                       roomCode: value.room.code,
                       socketId: socket.id,
                     })
                   })
                 setIsInLobby(false)
-                // socket.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-                //   roomCode: searchParams.get('roomCode'),
-                //   username,
-                //   socketId: socket.id,
-                // } as JoinRoomDTO)
-                // socket.emit('call:offer', { roomCode: searchParams.get('roomCode'), userID, offer })
-                // dispatch(setroomCodeAndUserID({ userID, roomCode: searchParams.get('roomCode') ?? '' }))
               }}
             />
           </Layout.Content>

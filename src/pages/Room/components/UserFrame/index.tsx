@@ -11,10 +11,12 @@ export function UserFrame<Type>({
   isPin,
   onClickPin,
   stream,
+  muted,
 }: {
   user: Type
   isPin: boolean
   stream?: MediaStream
+  muted: boolean
   onClickPin: (user: Type) => void
 }): ReactElement {
   const params = useParams()
@@ -70,7 +72,7 @@ export function UserFrame<Type>({
           size="small"
         ></Button>
       </Space>
-      <ReactPlayer url={stream} playing />
+      <ReactPlayer url={stream} playing muted={muted} />
     </div>
   )
 }

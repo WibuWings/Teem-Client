@@ -1,9 +1,8 @@
 import { API_URL } from '@/config'
-import React, { ReactElement } from 'react'
+import React, { ReactElement, useMemo } from 'react'
 import { io, Socket } from 'socket.io-client'
-const socket = io(API_URL)
-export const SocketContext = React.createContext<{ socket: Socket<any, any> }>({
-  socket: socket,
+export const SocketContext = React.createContext<{ socket: Socket<any, any> | undefined }>({
+  socket: undefined,
 })
 
 type Props = {
@@ -11,6 +10,7 @@ type Props = {
 }
 
 export const SocketProvider = (props: Props) => {
+  const socket = useMemo(() => io(API_URL), [])
   return <SocketContext.Provider value={{ socket }}>{props.children}</SocketContext.Provider>
 }
 

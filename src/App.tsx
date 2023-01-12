@@ -30,9 +30,9 @@ export function App() {
   }, [])
 
   return (
-    <Provider store={store}>
+    <PeerProvider>
       <SocketProvider>
-        <PeerProvider>
+        <Provider store={store}>
           <div className="app" id="app">
             <RouterComponent>
               <Routes>
@@ -46,8 +46,8 @@ export function App() {
               </Routes>
             </RouterComponent>
           </div>
-        </PeerProvider>
+        </Provider>
       </SocketProvider>
-    </Provider>
+    </PeerProvider>
   )
 }

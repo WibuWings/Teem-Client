@@ -28,6 +28,7 @@ export const roomSlice = createSlice({
   extraReducers: (builder) => {
     builder.addMatcher(roomApi.endpoints.joinRoom.matchFulfilled, (state, { payload }) => {
       const { message, room } = payload
+      console.log(room)
       return room
     })
   },
