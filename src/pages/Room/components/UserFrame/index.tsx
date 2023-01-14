@@ -11,11 +11,13 @@ export function UserFrame<Type>({
   isPin,
   onClickPin,
   stream,
+  displayStream,
   muted,
 }: {
   user: Type
   isPin: boolean
   stream?: MediaStream
+  displayStream? : DisplayMediaStreamOptions
   muted: boolean
   onClickPin: (user: Type) => void
 }): ReactElement {

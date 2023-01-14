@@ -41,6 +41,7 @@ export function Room() {
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setOpenCamera] = useState(false)
+  const [isShareScreen, setDisplayMedia] = useState(false)
   const [pinUser, setPinUser] = useState<User | undefined>()
   const [remoteSocketId, setRemoteSocketId] = useState('')
   useEffect(() => {
@@ -64,6 +65,11 @@ export function Room() {
   const toggleOpenCamera = () => {
     setOpenCamera((cur) => !cur)
   }
+
+  const toggleShareScreen = () => {
+    setDisplayMedia((cur) => !cur)
+  }  
+
   const leaveCall = () => {
     // navigate(rc(RouteKey.JoinRoom).path)
     socket?.disconnect()
@@ -140,6 +146,20 @@ export function Room() {
     },
     [sendStream]
   )
+
+  const getDisplayMedia = useCallback(
+    async () => {
+      try {
+        const displayMedia   = await navigator.mediaDevices.getDisplayMedia({
+        })
+        setMediaStream(displayMedia)
+      } catch (err: any) {
+        console.log(err.name + ': ' + err.message)
+      }
+    },
+    [sendStream]
+  )
+
   //handle not existing room
   useEffect(() => {
     if (!searchParams.get('roomCode')) {
@@ -175,6 +195,13 @@ export function Room() {
   }, [isOpenCamera])
 
   useEffect(() => {
+    if (isShareScreen) {
+      getDisplayMedia()
+    }
+  }, [isShareScreen])
+
+
+  useEffect(() => {
     if (mediaStream) sendStream?.(mediaStream)
   }, [mediaStream, sendStream])
 
@@ -206,19 +233,19 @@ export function Room() {
                   size="large"
                 ></Button>
                 <Button
-                  type={isCollapsedMessage ? 'default' : 'primary'}
+                  type={isCollapsedMessage ? 'primary' : 'default'}
                   onClick={toggleCollapsMessage}
                   icon={<Icon.MessageOutlined />}
                   size="large"
                 ></Button>
                 <Button
-                  type={isCollapsedMessage ? 'default' : 'primary'}
-                  onClick={toggleCollapsMessage}
+                  type={isShareScreen ? 'primary' : 'default'}
+                  onClick={toggleShareScreen}
                   icon={<Icon.LaptopOutlined />}
                   size="large"
                 ></Button>
                 <Button
-                  type={isCollapsedMessage ? 'default' : 'primary'}
+                  type={isCollapsedMessage ? 'primary' : 'default'}
                   onClick={toggleCollapsMessage}
                   icon={<Icon.TeamOutlined />}
                   size="large"
