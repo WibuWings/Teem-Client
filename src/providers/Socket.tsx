@@ -1,8 +1,9 @@
 import { API_URL } from '@/config'
 import React, { ReactElement, useMemo } from 'react'
 import { io, Socket } from 'socket.io-client'
-export const SocketContext = React.createContext<{ socket: Socket<any, any> | undefined }>({
-  socket: undefined,
+const socket = io(API_URL)
+export const SocketContext = React.createContext<{ socket: Socket<any, any> }>({
+  socket: socket,
 })
 
 type Props = {
@@ -10,7 +11,6 @@ type Props = {
 }
 
 export const SocketProvider = (props: Props) => {
-  const socket = useMemo(() => io(API_URL), [])
   return <SocketContext.Provider value={{ socket }}>{props.children}</SocketContext.Provider>
 }
 
@@ -22,11 +22,13 @@ export const SOCKET_EVENT = {
     USER_DISCONNECTED: 'USER_DISCONNECTED',
     INCOMMING_CALL: 'INCOMMING_CALL',
     CALL_ACCEPTED: 'CALL_ACCEPTED',
+    ICE_CANDIDATE: 'ICE_CANDIDATE',
   },
   EMIT: {
     JOIN_ROOM: 'JOIN_ROOM',
     SEND_MESSAGE: 'SEND_MESSAGE',
     CALL_USER: 'CALL_USER',
     CALL_ACCEPTED: 'CALL_ACCEPTED',
+    ICE_CANDIDATE: 'ICE_CANDIDATE',
   },
 }

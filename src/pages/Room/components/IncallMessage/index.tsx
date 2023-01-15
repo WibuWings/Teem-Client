@@ -24,8 +24,7 @@ export function IncallMessage(props: Props) {
     form
       .validateFields()
       .then((value) => {
-        socket.emit(SOCKET_EVENT.EMIT.SEND_MESSAGE, {
-          roomCode: roomInfo.code,
+        socket?.emit(SOCKET_EVENT.EMIT.SEND_MESSAGE, {
           message: value.message,
         })
         form.setFieldValue('message', '')
@@ -34,13 +33,13 @@ export function IncallMessage(props: Props) {
   }
 
   useEffect(() => {
-    socket.on(SOCKET_EVENT.ON.RECEIVE_MESSAGE, (data: any) => {
+    socket?.on(SOCKET_EVENT.ON.RECEIVE_MESSAGE, (data: any) => {
       dispatch(pushMessage(data))
     })
 
     // remove listen
     return () => {
-      socket.off(SOCKET_EVENT.ON.RECEIVE_MESSAGE)
+      socket?.off(SOCKET_EVENT.ON.RECEIVE_MESSAGE)
     }
   }, [])
 
@@ -60,7 +59,7 @@ export function IncallMessage(props: Props) {
             key={idx}
             data={message.content}
             type={MessageType.Text}
-            from={message.sender.socketId === socket.id ? MessageFrom.Me : MessageFrom.Other}
+            from={message.sender.socketId === socket?.id ? MessageFrom.Me : MessageFrom.Other}
           />
         ))}
       </div>
@@ -68,10 +67,14 @@ export function IncallMessage(props: Props) {
         <Button type="default" icon={<Icon.PaperClipOutlined />}></Button>
         <Form style={{ flex: 1 }} form={form} initialValues={{ message: '' }}>
           <Form.Item noStyle name="message" rules={[{ required: true }]}>
-            <Input style={{ width: '100%' }}></Input>
+            <Input.Search
+              enterButton={<Button type="primary" icon={<Icon.SendOutlined />}></Button>}
+              onSearch={handleSubmit}
+              style={{ width: '100%' }}
+              autoFocus={true}
+            ></Input.Search>
           </Form.Item>
         </Form>
-        <Button type="primary" icon={<Icon.SendOutlined />} onClick={handleSubmit}></Button>
       </Space.Compact>
     </Card>
   )

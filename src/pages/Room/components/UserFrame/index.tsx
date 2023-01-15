@@ -1,10 +1,11 @@
 import { Button, Space } from 'antd'
-import React, { ReactElement, useState } from 'react'
+import React, { ReactElement, useEffect, useRef, useState } from 'react'
 import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { rc, RouteKey } from '@/routes'
 import styles from './style.module.less'
 import ReactPlayer from 'react-player'
+import { url } from 'inspector'
 
 export function UserFrame<Type>({
   user,
@@ -21,9 +22,11 @@ export function UserFrame<Type>({
 }): ReactElement {
   const params = useParams()
   const navigate = useNavigate()
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const [isOpenMic, setIsOpenMic] = useState(false)
 
-  const [isVisible, setIsVisible] = useState(false)
+  const [isOpenCam, setIsOpenCam] = useState(false)
 
   // controll handler
   const toggleOpenMic = () => {
@@ -32,14 +35,24 @@ export function UserFrame<Type>({
   const leaveCall = () => {
     navigate(rc(RouteKey.JoinRoom).path)
   }
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (video) {
+      video.srcObject = stream
+      video.onloadedmetadata = function (e) {
+        video.play()
+      }
+    }
+  }, [])
   return (
     <div
       className={styles['user-frame']}
       onMouseOver={(e) => {
-        setIsVisible(true)
+        setIsOpenCam(true)
       }}
       onMouseOut={(e) => {
-        setIsVisible(false)
+        setIsOpenCam(false)
       }}
     >
       <Space
@@ -47,7 +60,7 @@ export function UserFrame<Type>({
           position: 'absolute',
           left: '10px',
           top: '10px',
-          visibility: isVisible ? 'visible' : 'hidden',
+          visibility: isOpenCam ? 'visible' : 'hidden',
         }}
       >
         <Button
@@ -73,6 +86,7 @@ export function UserFrame<Type>({
         ></Button>
       </Space>
       <ReactPlayer url={stream} playing muted={muted} />
+      <video ref={videoRef} autoPlay />
     </div>
   )
 }

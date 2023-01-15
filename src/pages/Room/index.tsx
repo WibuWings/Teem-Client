@@ -13,24 +13,31 @@ import { UserFrame } from './components/UserFrame'
 import { Overlay } from './components/Overlay'
 import { useAppDispatch, useAppSelector, usePeerContext, useSocketContext } from '@/hooks'
 import { pushNewUserToRoom, removeUserFromRoom } from './slice'
-import { SocketProvider, SOCKET_EVENT } from '@/providers/Socket'
+import { SOCKET_EVENT } from '@/providers/Socket'
 import { useJoinRoomMutation } from './apiSlice'
-import { JoinRoomDTO, User } from './model'
-import { is } from 'immer/dist/internal'
+import { JoinRoomDTO, User, Room } from './model'
 
 type RoomParams = {
   roomCode: string
 }
 
-export function Room() {
+export function RoomPage() {
   // react hook
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   // socket & peer
   const { socket } = useSocketContext()
-  const { peer, createOffer, createAnswer, setRemoteAnswer, sendStream, remoteStream } =
-    usePeerContext()
+  const {
+    peer,
+    createOffer,
+    createAnswer,
+    setRemoteAnswer,
+    sendStream,
+    remoteStream,
+    peerElements,
+    peerManager,
+  } = usePeerContext()
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
 
   // room API
@@ -42,10 +49,7 @@ export function Room() {
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setOpenCamera] = useState(false)
   const [pinUser, setPinUser] = useState<User | undefined>()
-  const [remoteSocketId, setRemoteSocketId] = useState('')
-  useEffect(() => {
-    console.log(roomInfo)
-  }, [roomInfo])
+
   // message notification context
   const [messageApi, messageContextHolder] = message.useMessage()
   const info = () => {
@@ -75,22 +79,37 @@ export function Room() {
         message: `${user.username} joined room`,
       })
       dispatch(pushNewUserToRoom(user))
-      setRemoteSocketId(user.socketId)
+      if (mediaStream) {
+        sendStream?.(mediaStream)
+      }
     },
-    [socket, createOffer]
+    [socket, mediaStream]
   )
   const handleNegotiation = useCallback(
     async (data: any) => {
       console.log('negotiation needed')
       const localOffer = await createOffer?.()
-      console.log(roomInfo)
       socket?.emit(SOCKET_EVENT.EMIT.CALL_USER, {
-        roomCode: 'room1',
         offer: localOffer,
       })
     },
-    [peer?.localDescription, socket, roomInfo]
+    [peer]
   )
+  const handleIceCandidate = useCallback(
+    (data: RTCPeerConnectionIceEvent) => {
+      socket?.emit(SOCKET_EVENT.EMIT.ICE_CANDIDATE, {
+        candidate: data.candidate,
+      })
+    },
+    [peer]
+  )
+  const handleIceAccepted = useCallback(
+    async ({ candidate }) => {
+      await peer?.addIceCandidate(candidate)
+    },
+    [peer]
+  )
+
   const handleIncommingCall = useCallback(
     async (data: any) => {
       console.log(data)
@@ -138,7 +157,7 @@ export function Room() {
         console.log(err.name + ': ' + err.message)
       }
     },
-    [sendStream]
+    [sendStream, setMediaStream]
   )
   //handle not existing room
   useEffect(() => {
@@ -146,6 +165,7 @@ export function Room() {
       navigate(rc(RouteKey.JoinRoom).path)
     } else {
     }
+    console.log(peerElements)
   }, [])
   // handle socket event
   useEffect(() => {
@@ -155,6 +175,7 @@ export function Room() {
     socket?.on(SOCKET_EVENT.ON.INCOMMING_CALL, handleIncommingCall)
     // accept incoming call
     socket?.on(SOCKET_EVENT.ON.CALL_ACCEPTED, handleCallAccepted)
+    socket?.on(SOCKET_EVENT.ON.ICE_CANDIDATE, handleIceAccepted)
     // user left room
     socket?.on(SOCKET_EVENT.ON.USER_DISCONNECTED, handleUserDisconnected)
     // disconnect
@@ -166,22 +187,38 @@ export function Room() {
       socket?.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
       socket?.off('disconnect')
     }
-  }, [socket, handleNewUserJoined, handleIncommingCall, handleCallAccepted])
+  }, [
+    socket,
+    handleNewUserJoined,
+    handleIncommingCall,
+    handleCallAccepted,
+    handleIceAccepted,
+    handleUserDisconnected,
+  ])
 
   useEffect(() => {
-    if (isOpenCamera) {
-      getMyMediaStream(isOpenCamera, false)
+    if (isOpenCamera || isOpenMic) {
+      getMyMediaStream(isOpenCamera, isOpenMic)
+    }
+    if (!isOpenMic) {
+      mediaStream?.getAudioTracks()?.[0]?.stop()
+    }
+    if (!isOpenCamera) {
+      mediaStream?.getVideoTracks()?.[0]?.stop()
     }
   }, [isOpenCamera])
 
   useEffect(() => {
-    if (mediaStream) sendStream?.(mediaStream)
-  }, [mediaStream, sendStream])
+    // if (mediaStream) sendStream?.(mediaStream)
+    console.log(mediaStream)
+  }, [mediaStream])
 
   useEffect(() => {
     peer?.addEventListener('negotiationneeded', handleNegotiation)
+    peer?.addEventListener('icecandidate', handleIceCandidate)
     return () => {
       peer?.removeEventListener('negotiationneeded', handleNegotiation)
+      peer?.removeEventListener('icecandidate', handleIceCandidate)
     }
   }, [peer])
   if (!searchParams.get('roomCode')) return <PrepairRoom />

@@ -10,7 +10,7 @@ import { ENABLEd_HASH_ROUTER, ENV, VITE_ENV } from './config'
 import { rc, RouteKey } from './routes'
 import { store } from './store'
 import { JoinRoom } from './pages/JoinRoom'
-import { Room } from './pages/Room'
+import { RoomPage } from './pages/Room'
 import { NotFoundPage } from './pages/NotFound'
 import { SocketProvider } from './providers/Socket'
 import { PeerProvider } from './providers/Peer'
@@ -30,9 +30,9 @@ export function App() {
   }, [])
 
   return (
-    <PeerProvider>
+    <Provider store={store}>
       <SocketProvider>
-        <Provider store={store}>
+        <PeerProvider>
           <div className="app" id="app">
             <RouterComponent>
               <Routes>
@@ -41,13 +41,13 @@ export function App() {
                   element={<Navigate to={rc(RouteKey.JoinRoom).path} replace />}
                 />
                 <Route path={rc(RouteKey.JoinRoom).path} element={<JoinRoom />} />
-                <Route path={rc(RouteKey.Room).path} element={<Room />} />
+                <Route path={rc(RouteKey.Room).path} element={<RoomPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </RouterComponent>
           </div>
-        </Provider>
+        </PeerProvider>
       </SocketProvider>
-    </PeerProvider>
+    </Provider>
   )
 }
