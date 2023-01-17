@@ -44,7 +44,7 @@ export function UserFrame<Type>({
         video.play()
       }
     }
-  }, [])
+  }, [videoRef.current, stream])
   return (
     <div
       className={styles['user-frame']}
@@ -85,8 +85,12 @@ export function UserFrame<Type>({
           size="small"
         ></Button>
       </Space>
-      <ReactPlayer url={stream} playing muted={muted} />
-      <video ref={videoRef} autoPlay />
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        style={{ height: '200px', width: '200px', objectFit: 'contain' }}
+      />
     </div>
   )
 }

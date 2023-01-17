@@ -47,7 +47,7 @@ export function RoomPage() {
   const [isInLobby, setIsInLobby] = useState(true)
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
   const [isOpenMic, setIsOpenMic] = useState(false)
-  const [isOpenCamera, setOpenCamera] = useState(false)
+  const [isOpenCamera, setIsOpenCamera] = useState(false)
   const [pinUser, setPinUser] = useState<User | undefined>()
 
   // message notification context
@@ -66,7 +66,7 @@ export function RoomPage() {
     setIsOpenMic((cur) => !cur)
   }
   const toggleOpenCamera = () => {
-    setOpenCamera((cur) => !cur)
+    setIsOpenCamera((cur) => !cur)
   }
   const leaveCall = () => {
     // navigate(rc(RouteKey.JoinRoom).path)
@@ -80,6 +80,8 @@ export function RoomPage() {
       })
       dispatch(pushNewUserToRoom(user))
       if (mediaStream) {
+        // peerManager.push NewPeer(user.socketId)
+        console.log('preparing to set track to peer')
         sendStream?.(mediaStream)
       }
     },
@@ -97,6 +99,7 @@ export function RoomPage() {
   )
   const handleIceCandidate = useCallback(
     (data: RTCPeerConnectionIceEvent) => {
+      console.log('ice')
       socket?.emit(SOCKET_EVENT.EMIT.ICE_CANDIDATE, {
         candidate: data.candidate,
       })
@@ -112,7 +115,7 @@ export function RoomPage() {
 
   const handleIncommingCall = useCallback(
     async (data: any) => {
-      console.log(data)
+      console.log('have a offer', data)
       const ans = await createAnswer?.(data.offer)
       socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
     },
@@ -120,11 +123,18 @@ export function RoomPage() {
   )
   const handleCallAccepted = useCallback(
     async (data: any) => {
-      console.log(data)
+      console.log('have a answer', data)
       await setRemoteAnswer?.(data.ans)
     },
     [setRemoteAnswer]
   )
+
+  const handleRestartIce = useCallback(() => {
+    console.log('ice conflict')
+    if (peer?.iceConnectionState === 'failed') {
+      peer?.restartIce()
+    }
+  }, [peer])
 
   const handleUserDisconnected = useCallback(
     (user: User) => {
@@ -165,7 +175,6 @@ export function RoomPage() {
       navigate(rc(RouteKey.JoinRoom).path)
     } else {
     }
-    console.log(peerElements)
   }, [])
   // handle socket event
   useEffect(() => {
@@ -209,16 +218,17 @@ export function RoomPage() {
   }, [isOpenCamera])
 
   useEffect(() => {
-    // if (mediaStream) sendStream?.(mediaStream)
-    console.log(mediaStream)
+    if (mediaStream && roomInfo?.members?.length > 1) sendStream?.(mediaStream)
   }, [mediaStream])
 
   useEffect(() => {
     peer?.addEventListener('negotiationneeded', handleNegotiation)
     peer?.addEventListener('icecandidate', handleIceCandidate)
+    peer?.addEventListener('iceconnectionstatechange', handleRestartIce)
     return () => {
       peer?.removeEventListener('negotiationneeded', handleNegotiation)
       peer?.removeEventListener('icecandidate', handleIceCandidate)
+      peer?.removeEventListener('iceconnectionstatechange', handleRestartIce)
     }
   }, [peer])
   if (!searchParams.get('roomCode')) return <PrepairRoom />
@@ -304,6 +314,9 @@ export function RoomPage() {
         ) : (
           <Layout.Content>
             <Overlay
+              stream={mediaStream}
+              onToggleCam={(toggle) => setIsOpenCamera(toggle)}
+              onToggleMic={(toggle) => setIsOpenMic(toggle)}
               onEnterUserID={async (username) => {
                 joinRoom({
                   roomCode: searchParams.get('roomCode')!,
@@ -312,7 +325,6 @@ export function RoomPage() {
                 })
                   .unwrap()
                   .then((value) => {
-                    // console.log(value)
                     socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
                       roomCode: value.room.code,
                       socketId: socket.id,

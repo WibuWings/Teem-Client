@@ -20,12 +20,10 @@ const pushNewPeer = (socketId: string) => {
   })
   let remoteStream = undefined
   const handleTrackEvent = (e: RTCTrackEvent) => {
-    console.log('track')
     const streams = e.streams
     remoteStream = streams[0]
   }
   peer.addEventListener('track', handleTrackEvent)
-  console.log(peerElements)
   peerElements.push({
     peer,
     socketId,
@@ -53,7 +51,6 @@ const setRemoteAnswer = async (peer: RTCPeerConnection, ans: RTCSessionDescripti
 // send stream
 const sendStream = (peer: RTCPeerConnection, stream: MediaStream) => {
   const tracks = stream.getTracks()
-  console.log(tracks)
   const sender = peer.getSenders()?.[0]
   if (sender) {
     peer.removeTrack(sender)
@@ -154,20 +151,20 @@ export const PeerProvider = (props: Props) => {
   const sendStream2 = useCallback(
     (stream: MediaStream) => {
       const tracks = stream.getTracks()
-      console.log(tracks)
       peer.getSenders().forEach((sender) => {
         peer.removeTrack(sender)
       })
       for (const track of tracks) {
         peer.addTrack(track, stream)
+        console.log('add track to peer -> send stream')
       }
     },
     [peer]
   )
 
   const handleTrackEvent = useCallback((e: RTCTrackEvent) => {
-    console.log('track')
     const streams = e.streams
+    console.log('received remote stream')
     setRemoteStream(streams[0])
   }, [])
 

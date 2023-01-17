@@ -9,7 +9,10 @@ import * as Icon from '@ant-design/icons'
 import styles from './style.module.less'
 
 type Props = {
+  stream?: MediaStream
   onEnterUserID: (username: string) => void | Promise<void>
+  onToggleCam: (isOpenCam: boolean) => void
+  onToggleMic: (isOpenMic: boolean) => void
 }
 
 export function Overlay(props: Props) {
@@ -18,7 +21,6 @@ export function Overlay(props: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setOpenCamera] = useState(false)
-  const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
 
   // enter id
   const handleSubmit = () =>
@@ -37,45 +39,22 @@ export function Overlay(props: Props) {
     setOpenCamera((cur) => !cur)
   }
 
-  // get media streams
-  const getMediaStreams = async (camera: boolean, mic: boolean) => {
-    let All_mediaDevices = navigator.mediaDevices
-    if (!All_mediaDevices || !All_mediaDevices.getUserMedia) {
-      alert('Camera not supported.')
-      return
-    }
-
-    try {
-      const media = await All_mediaDevices.getUserMedia({
-        audio: mic,
-        video: camera,
-      })
-
-      setMediaStream(media)
-      const video = videoRef.current
-
-      if (video) {
-        video.srcObject = media
-        video.onloadedmetadata = function (e) {
-          video.play()
-        }
-      }
-    } catch (err: any) {
-      console.log(err.name + ': ' + err.message)
-    }
-  }
+  useEffect(() => {
+    props.onToggleMic(isOpenMic)
+  }, [isOpenMic])
 
   useEffect(() => {
-    if (isOpenCamera || isOpenMic) {
-      getMediaStreams(isOpenCamera, isOpenMic)
+    props.onToggleCam(isOpenCamera)
+  }, [isOpenCamera])
+
+  useEffect(() => {
+    if (videoRef.current && props.stream) {
+      videoRef.current.srcObject = props.stream
+      videoRef.current.onloadedmetadata = function (e) {
+        videoRef.current?.play()
+      }
     }
-    if (!isOpenMic) {
-      mediaStream?.getAudioTracks()?.[0]?.stop()
-    }
-    if (!isOpenCamera) {
-      mediaStream?.getVideoTracks()?.[0]?.stop()
-    }
-  }, [isOpenCamera, isOpenMic])
+  }, [videoRef.current, props.stream])
   return (
     <div className={styles['form-wrapper']}>
       <Card className={styles.card}>
