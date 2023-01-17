@@ -28,16 +28,7 @@ export function RoomPage() {
   const dispatch = useAppDispatch()
   // socket & peer
   const { socket } = useSocketContext()
-  const {
-    peer,
-    createOffer,
-    createAnswer,
-    setRemoteAnswer,
-    sendStream,
-    remoteStream,
-    peerElements,
-    peerManager,
-  } = usePeerContext()
+  const { peerElements, peerManager } = usePeerContext()
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
 
   // room API
@@ -73,122 +64,99 @@ export function RoomPage() {
     socket?.disconnect()
   }
   // peer event handler
-  const handleNewUserJoined = useCallback(
-    async (user: User) => {
-      notification.info({
-        message: `${user.username} joined room`,
-      })
-      dispatch(pushNewUserToRoom(user))
+  const handleNewUserJoined = async (user: User) => {
+    notification.info({
+      message: `${user.username} joined room`,
+    })
+    dispatch(pushNewUserToRoom(user))
 
-      const newPeerElement = peerManager.pushNewPeer(user.socketId)
-      newPeerElement.peer.addEventListener('negotiationneeded', handleNegotiation)
-      newPeerElement.peer.addEventListener('icecandidate', (e) =>
-        handleIceCandidate(e, newPeerElement?.socketId)
-      )
-      newPeerElement.peer.addEventListener('iceconnectionstatechange', handleRestartIce)
+    const newPeerElement = peerManager.pushNewPeer(user.socketId)
+    newPeerElement.peer.addEventListener('negotiationneeded', handleNegotiation)
+    newPeerElement.peer.addEventListener('icecandidate', (e) =>
+      handleIceCandidate(e, newPeerElement.peer, user.socketId)
+    )
+    newPeerElement.peer.addEventListener('iceconnectionstatechange', handleRestartIce)
 
-      if (mediaStream) {
-        console.log('preparing to set track to peer')
-        peerManager.sendStream(newPeerElement.peer, mediaStream)
-        // sendStream?.(mediaStream)
-      }
-    },
-    [socket, mediaStream]
-  )
-  const handleNegotiation = useCallback(
-    async (data: any) => {
-      console.log('negotiation needed')
-      // const localOffer = await createOffer?.()
-      const toPeer = peerElements.find((e) => e.peer === data.srcElement)
-      const localOffer = await peerManager.createOffer(toPeer?.peer!)
-      socket?.emit(SOCKET_EVENT.EMIT.CALL_USER, {
-        offer: localOffer,
-        toSocketId: toPeer?.socketId,
-      })
-    },
-    [peer]
-  )
-  const handleIceCandidate = useCallback(
-    (data: RTCPeerConnectionIceEvent, toSocketId) => {
-      console.log('ice')
+    if (mediaStream) {
+      console.log('preparing to set track to peer')
+      peerManager.sendStream(newPeerElement.peer, mediaStream)
+      // sendStream?.(mediaStream)
+    }
+  }
+  const handleNegotiation = async (data: any) => {
+    console.log('negotiation needed')
+    // const localOffer = await createOffer?.()
+    const toPeer = peerElements.find((e) => e.peer === data.srcElement)
+    const localOffer = await peerManager.createOffer(toPeer?.peer!)
+    socket?.emit(SOCKET_EVENT.EMIT.CALL_USER, {
+      offer: localOffer,
+      toSocketId: toPeer?.socketId,
+    })
+  }
+  const handleIceCandidate = (
+    data: RTCPeerConnectionIceEvent,
+    peer: RTCPeerConnection,
+    toSocketId: string
+  ) => {
+    console.log('ice')
+    if (peer.remoteDescription)
       socket?.emit(SOCKET_EVENT.EMIT.ICE_CANDIDATE, {
         candidate: data.candidate,
         toSocketId,
       })
-    },
-    [peer]
-  )
-  const handleIceAccepted = useCallback(
-    async ({ candidate, toSocketId }) => {
-      console.log('ice accepted', toSocketId)
-      if (toSocketId && candidate) {
-        const fromPeer = peerElements.find((e) => e.socketId === toSocketId)
+  }
+  const handleIceAccepted = async ({ candidate, toSocketId }: any) => {
+    console.log('ice accepted', toSocketId)
+    if (toSocketId && candidate) {
+      const fromPeer = peerElements.find((e) => e.socketId === toSocketId)
+      console.log('fromPeer', fromPeer)
+      if (fromPeer?.peer.remoteDescription) {
         await fromPeer?.peer.addIceCandidate(candidate)
       }
-    },
-    [peer]
-  )
-  const handleRestartIce = useCallback(
-    (e: any) => {
+    }
+  }
+  const handleRestartIce = (e: any) => {
+    if (e.srcElement.iceConnectionState === 'failed') {
       console.log('ice conflict')
-      if (e.srcElement.iceConnectionState === 'failed') {
-        e.srcElement.restartIce()
-      }
-    },
-    [peerManager]
-  )
+      e.srcElement.restartIce()
+    }
+  }
   // socket event
-  const handleIncommingCall = useCallback(
-    async (data: any) => {
-      console.log('have a offer', data)
-      const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
-      const ans = await peerManager.createAnswer(fromPeer?.peer!, data.offer)
-      socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
-    },
-    [socket, peerManager]
-  )
-  const handleCallAccepted = useCallback(
-    async (data: any) => {
-      console.log('have a answer', data)
-      const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
-      await peerManager.setRemoteAnswer(fromPeer?.peer!, data.ans)
-    },
-    [peerManager]
-  )
-
-  const handleUserDisconnected = useCallback(
-    (user: User) => {
-      notification.info({
-        message: `${user.username} left room`,
-      })
-      dispatch(removeUserFromRoom(user.socketId))
-    },
-    [socket]
-  )
-  const handleDisconnect = useCallback(
-    (reason: any) => {
-      console.log(reason)
-      if (reason === 'io server disconnect') {
-        socket?.connect()
-      }
-    },
-    [socket]
-  )
+  const handleIncommingCall = async (data: any) => {
+    console.log('have a offer', data)
+    const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
+    const ans = await peerManager.createAnswer(fromPeer?.peer!, data.offer)
+    socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
+  }
+  const handleCallAccepted = async (data: any) => {
+    console.log('have a answer', data)
+    const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
+    await peerManager.setRemoteAnswer(fromPeer?.peer!, data.ans)
+  }
+  const handleUserDisconnected = (user: User) => {
+    notification.info({
+      message: `${user.username} left room`,
+    })
+    dispatch(removeUserFromRoom(user.socketId))
+  }
+  const handleDisconnect = (reason: any) => {
+    console.log(reason)
+    if (reason === 'io server disconnect') {
+      socket?.connect()
+    }
+  }
   // get stream
-  const getMyMediaStream = useCallback(
-    async (camera: boolean, mic: boolean) => {
-      try {
-        const media = await navigator.mediaDevices.getUserMedia({
-          audio: mic,
-          video: camera,
-        })
-        setMediaStream(media)
-      } catch (err: any) {
-        console.log(err.name + ': ' + err.message)
-      }
-    },
-    [sendStream, setMediaStream]
-  )
+  const getMyMediaStream = async (camera: boolean, mic: boolean) => {
+    try {
+      const media = await navigator.mediaDevices.getUserMedia({
+        audio: mic,
+        video: camera,
+      })
+      setMediaStream(media)
+    } catch (err: any) {
+      console.log(err.name + ': ' + err.message)
+    }
+  }
   //handle not existing room
   useEffect(() => {
     if (!searchParams.get('roomCode')) {
@@ -224,6 +192,7 @@ export function RoomPage() {
     handleCallAccepted,
     handleIceAccepted,
     handleUserDisconnected,
+    handleDisconnect,
   ])
 
   useEffect(() => {
@@ -239,34 +208,13 @@ export function RoomPage() {
   }, [isOpenCamera])
 
   useEffect(() => {
-    // if (mediaStream && roomInfo?.members?.length > 1) sendStream?.(mediaStream)
-    // if (mediaStream && roomInfo?.members?.length > 1) {
-    //   peerElements.forEach((p) => {
-    //     peerManager.sendStream(p.peer, mediaStream)
-    //   })
-    // }
+    if (mediaStream && roomInfo.members.length > 1) {
+      peerElements.forEach((e) => {
+        peerManager.sendStream(e.peer, mediaStream)
+      })
+    }
   }, [mediaStream])
 
-  useEffect(() => {
-    // peerElements.forEach((e) => {
-    //   e.peer.addEventListener('negotiationneeded', handleNegotiation)
-    //   e.peer.addEventListener('icecandidate', handleIceCandidate)
-    //   e.peer.addEventListener('iceconnectionstatechange', handleRestartIce)
-    // })
-    // peer?.addEventListener('negotiationneeded', handleNegotiation)
-    // peer?.addEventListener('icecandidate', handleIceCandidate)
-    // peer?.addEventListener('iceconnectionstatechange', handleRestartIce)
-    return () => {
-      // peer?.removeEventListener('negotiationneeded', handleNegotiation)
-      // peer?.removeEventListener('icecandidate', handleIceCandidate)
-      // peer?.removeEventListener('iceconnectionstatechange', handleRestartIce)
-      // peerElements.forEach((e) => {
-      //   e.peer.removeEventListener('negotiationneeded', handleNegotiation)
-      //   e.peer.removeEventListener('icecandidate', handleIceCandidate)
-      //   e.peer.removeEventListener('iceconnectionstatechange', handleRestartIce)
-      // })
-    }
-  }, [peer])
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   return (
     <Spin spinning={isLoadingJoinRoom}>
@@ -316,7 +264,6 @@ export function RoomPage() {
                 ></Button>
               </Space>
               <UserGrid<User>
-                key={remoteStream ? 'true' : 'false'}
                 pinUser={pinUser}
                 users={roomInfo.members}
                 renderItems={(item, idx) => (
@@ -334,7 +281,7 @@ export function RoomPage() {
                     stream={
                       item.socketId === socket?.id
                         ? mediaStream
-                        : peerElements.find((e) => e.socketId === socket?.id)?.remoteStream
+                        : peerElements.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
                   />
@@ -368,18 +315,15 @@ export function RoomPage() {
                     value.room.members
                       .filter((m) => m.socketId !== socket.id)
                       .forEach((m) => {
-                        const newPeerElement = peerManager.pushNewPeer(m.socketId)
-                        // newPeerElement.peer.addEventListener(
-                        //   'negotiationneeded',
-                        //   handleNegotiation
-                        // )
-                        // newPeerElement.peer.addEventListener('icecandidate', (e) =>
-                        //   handleIceCandidate(e, newPeerElement?.socketId)
-                        // )
-                        // newPeerElement.peer.addEventListener(
-                        //   'iceconnectionstatechange',
-                        //   (e) => handleRestartIce
-                        // )
+                        const newPeerEle = peerManager.pushNewPeer(m.socketId)
+                        newPeerEle.peer.addEventListener('negotiationneeded', handleNegotiation)
+                        newPeerEle.peer.addEventListener('icecandidate', (e) =>
+                          handleIceCandidate(e, newPeerEle.peer, newPeerEle?.socketId)
+                        )
+                        newPeerEle.peer.addEventListener(
+                          'iceconnectionstatechange',
+                          handleRestartIce
+                        )
                       })
                     socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
                       roomCode: value.room.code,
