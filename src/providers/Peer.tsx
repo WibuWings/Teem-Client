@@ -19,16 +19,19 @@ const pushNewPeer = (socketId: string) => {
     ],
   })
   let remoteStream = undefined
-  const handleTrackEvent = (e: RTCTrackEvent) => {
-    const streams = e.streams
-    remoteStream = streams[0]
+  const handleTrackEvent = (e: RTCTrackEvent, peerElement: PeerElement) => {
+    console.log('received stream')
+    peerElement.remoteStream = e.streams[0]
   }
-  peer.addEventListener('track', handleTrackEvent)
-  peerElements.push({
+
+  const newPeerElement = {
     peer,
     socketId,
     remoteStream,
-  })
+  }
+  newPeerElement.peer.addEventListener('track', (e) => handleTrackEvent(e, newPeerElement))
+  peerElements.push(newPeerElement)
+  return newPeerElement
 }
 
 // init offet
@@ -71,7 +74,7 @@ type PeerElement = {
 }
 
 type PeerManager = {
-  pushNewPeer: (socketId: string) => void
+  pushNewPeer: (socketId: string) => PeerElement
   createOffer: (peer: RTCPeerConnection) => Promise<RTCSessionDescriptionInit>
   createAnswer: (
     peer: RTCPeerConnection,

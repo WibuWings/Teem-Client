@@ -72,17 +72,25 @@ export function RoomPage() {
     // navigate(rc(RouteKey.JoinRoom).path)
     socket?.disconnect()
   }
-  // socket event handler
+  // peer event handler
   const handleNewUserJoined = useCallback(
     async (user: User) => {
       notification.info({
         message: `${user.username} joined room`,
       })
       dispatch(pushNewUserToRoom(user))
+
+      const newPeerElement = peerManager.pushNewPeer(user.socketId)
+      newPeerElement.peer.addEventListener('negotiationneeded', handleNegotiation)
+      newPeerElement.peer.addEventListener('icecandidate', (e) =>
+        handleIceCandidate(e, newPeerElement?.socketId)
+      )
+      newPeerElement.peer.addEventListener('iceconnectionstatechange', handleRestartIce)
+
       if (mediaStream) {
-        // peerManager.push NewPeer(user.socketId)
         console.log('preparing to set track to peer')
-        sendStream?.(mediaStream)
+        peerManager.sendStream(newPeerElement.peer, mediaStream)
+        // sendStream?.(mediaStream)
       }
     },
     [socket, mediaStream]
@@ -90,51 +98,63 @@ export function RoomPage() {
   const handleNegotiation = useCallback(
     async (data: any) => {
       console.log('negotiation needed')
-      const localOffer = await createOffer?.()
+      // const localOffer = await createOffer?.()
+      const toPeer = peerElements.find((e) => e.peer === data.srcElement)
+      const localOffer = await peerManager.createOffer(toPeer?.peer!)
       socket?.emit(SOCKET_EVENT.EMIT.CALL_USER, {
         offer: localOffer,
+        toSocketId: toPeer?.socketId,
       })
     },
     [peer]
   )
   const handleIceCandidate = useCallback(
-    (data: RTCPeerConnectionIceEvent) => {
+    (data: RTCPeerConnectionIceEvent, toSocketId) => {
       console.log('ice')
       socket?.emit(SOCKET_EVENT.EMIT.ICE_CANDIDATE, {
         candidate: data.candidate,
+        toSocketId,
       })
     },
     [peer]
   )
   const handleIceAccepted = useCallback(
-    async ({ candidate }) => {
-      await peer?.addIceCandidate(candidate)
+    async ({ candidate, toSocketId }) => {
+      console.log('ice accepted', toSocketId)
+      if (toSocketId && candidate) {
+        const fromPeer = peerElements.find((e) => e.socketId === toSocketId)
+        await fromPeer?.peer.addIceCandidate(candidate)
+      }
     },
     [peer]
   )
-
+  const handleRestartIce = useCallback(
+    (e: any) => {
+      console.log('ice conflict')
+      if (e.srcElement.iceConnectionState === 'failed') {
+        e.srcElement.restartIce()
+      }
+    },
+    [peerManager]
+  )
+  // socket event
   const handleIncommingCall = useCallback(
     async (data: any) => {
       console.log('have a offer', data)
-      const ans = await createAnswer?.(data.offer)
+      const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
+      const ans = await peerManager.createAnswer(fromPeer?.peer!, data.offer)
       socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
     },
-    [socket, createAnswer]
+    [socket, peerManager]
   )
   const handleCallAccepted = useCallback(
     async (data: any) => {
       console.log('have a answer', data)
-      await setRemoteAnswer?.(data.ans)
+      const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
+      await peerManager.setRemoteAnswer(fromPeer?.peer!, data.ans)
     },
-    [setRemoteAnswer]
+    [peerManager]
   )
-
-  const handleRestartIce = useCallback(() => {
-    console.log('ice conflict')
-    if (peer?.iceConnectionState === 'failed') {
-      peer?.restartIce()
-    }
-  }, [peer])
 
   const handleUserDisconnected = useCallback(
     (user: User) => {
@@ -193,6 +213,7 @@ export function RoomPage() {
       socket?.off(SOCKET_EVENT.ON.USER_CONNECTED)
       socket?.off(SOCKET_EVENT.ON.INCOMMING_CALL)
       socket?.off(SOCKET_EVENT.ON.CALL_ACCEPTED)
+      socket?.off(SOCKET_EVENT.ON.ICE_CANDIDATE)
       socket?.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
       socket?.off('disconnect')
     }
@@ -218,17 +239,32 @@ export function RoomPage() {
   }, [isOpenCamera])
 
   useEffect(() => {
-    if (mediaStream && roomInfo?.members?.length > 1) sendStream?.(mediaStream)
+    // if (mediaStream && roomInfo?.members?.length > 1) sendStream?.(mediaStream)
+    // if (mediaStream && roomInfo?.members?.length > 1) {
+    //   peerElements.forEach((p) => {
+    //     peerManager.sendStream(p.peer, mediaStream)
+    //   })
+    // }
   }, [mediaStream])
 
   useEffect(() => {
-    peer?.addEventListener('negotiationneeded', handleNegotiation)
-    peer?.addEventListener('icecandidate', handleIceCandidate)
-    peer?.addEventListener('iceconnectionstatechange', handleRestartIce)
+    // peerElements.forEach((e) => {
+    //   e.peer.addEventListener('negotiationneeded', handleNegotiation)
+    //   e.peer.addEventListener('icecandidate', handleIceCandidate)
+    //   e.peer.addEventListener('iceconnectionstatechange', handleRestartIce)
+    // })
+    // peer?.addEventListener('negotiationneeded', handleNegotiation)
+    // peer?.addEventListener('icecandidate', handleIceCandidate)
+    // peer?.addEventListener('iceconnectionstatechange', handleRestartIce)
     return () => {
-      peer?.removeEventListener('negotiationneeded', handleNegotiation)
-      peer?.removeEventListener('icecandidate', handleIceCandidate)
-      peer?.removeEventListener('iceconnectionstatechange', handleRestartIce)
+      // peer?.removeEventListener('negotiationneeded', handleNegotiation)
+      // peer?.removeEventListener('icecandidate', handleIceCandidate)
+      // peer?.removeEventListener('iceconnectionstatechange', handleRestartIce)
+      // peerElements.forEach((e) => {
+      //   e.peer.removeEventListener('negotiationneeded', handleNegotiation)
+      //   e.peer.removeEventListener('icecandidate', handleIceCandidate)
+      //   e.peer.removeEventListener('iceconnectionstatechange', handleRestartIce)
+      // })
     }
   }, [peer])
   if (!searchParams.get('roomCode')) return <PrepairRoom />
@@ -295,7 +331,11 @@ export function RoomPage() {
                         setPinUser(user)
                       }
                     }}
-                    stream={item.socketId === socket?.id ? mediaStream : remoteStream}
+                    stream={
+                      item.socketId === socket?.id
+                        ? mediaStream
+                        : peerElements.find((e) => e.socketId === socket?.id)?.remoteStream
+                    }
                     muted={item.socketId === socket?.id}
                   />
                 )}
@@ -325,6 +365,22 @@ export function RoomPage() {
                 })
                   .unwrap()
                   .then((value) => {
+                    value.room.members
+                      .filter((m) => m.socketId !== socket.id)
+                      .forEach((m) => {
+                        const newPeerElement = peerManager.pushNewPeer(m.socketId)
+                        // newPeerElement.peer.addEventListener(
+                        //   'negotiationneeded',
+                        //   handleNegotiation
+                        // )
+                        // newPeerElement.peer.addEventListener('icecandidate', (e) =>
+                        //   handleIceCandidate(e, newPeerElement?.socketId)
+                        // )
+                        // newPeerElement.peer.addEventListener(
+                        //   'iceconnectionstatechange',
+                        //   (e) => handleRestartIce
+                        // )
+                      })
                     socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
                       roomCode: value.room.code,
                       socketId: socket.id,
