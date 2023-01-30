@@ -39,9 +39,13 @@ export function UserFrame<Type>({
   useEffect(() => {
     const video = videoRef.current
     if (video) {
-      video.srcObject = stream
-      video.onloadedmetadata = function (e) {
-        video.play()
+      if (!stream) {
+        video.srcObject = null
+      } else {
+        video.srcObject = stream
+        video.onloadedmetadata = function (e) {
+          video.play()
+        }
       }
     }
   }, [videoRef.current, stream])

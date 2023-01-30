@@ -1,5 +1,5 @@
 import { Button, Card, Drawer, Input, Layout, message, notification, Space, Spin } from 'antd'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as Icon from '@ant-design/icons'
 
@@ -16,9 +16,13 @@ import { pushNewUserToRoom, removeUserFromRoom } from './slice'
 import { SOCKET_EVENT } from '@/providers/Socket'
 import { useJoinRoomMutation } from './apiSlice'
 import { JoinRoomDTO, User, Room } from './model'
+import Peer from 'peerjs'
+import { waitApi } from '@/utils/async'
 
-type RoomParams = {
-  roomCode: string
+type PeerElement = {
+  peer: Peer
+  socketId: string
+  remoteStream?: MediaStream
 }
 
 export function RoomPage() {
@@ -28,8 +32,14 @@ export function RoomPage() {
   const dispatch = useAppDispatch()
   // socket & peer
   const { socket } = useSocketContext()
-  const { peerElements, peerManager } = usePeerContext()
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
+  const peerInstanceList = useRef<PeerElement[]>([])
+  const [streamList, setStreamList] = useState<
+    {
+      socketId: string
+      remoteStream?: MediaStream
+    }[]
+  >([])
 
   // room API
   const [joinRoom, { isLoading: isLoadingJoinRoom, error: errorJoinRoom }] = useJoinRoomMutation()
@@ -40,6 +50,39 @@ export function RoomPage() {
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setIsOpenCamera] = useState(false)
   const [pinUser, setPinUser] = useState<User | undefined>()
+
+  const pushNewPeer = (
+    peerElements: PeerElement[],
+    selfSocketId: string,
+    ortherSocketId: string
+  ) => {
+    const peer = new Peer(selfSocketId + ortherSocketId)
+    peer.on('open', (id) => {
+      console.log(`peer ${id} opened`)
+    })
+    const newPeerElement: PeerElement = {
+      peer,
+      socketId: ortherSocketId,
+    }
+    newPeerElement.peer.on('call', (call) => {
+      console.log('on incoming call')
+      call.answer(undefined) // Answer the call with an A/V stream.
+      call.on('stream', (remoteStream) => {
+        // Show stream in some <video> element.
+        newPeerElement.remoteStream = remoteStream
+        setStreamList(
+          peerElements
+            .filter((p) => p.remoteStream)
+            .map((p) => ({
+              socketId: p.socketId,
+              remoteStream: p.remoteStream,
+            }))
+        )
+      })
+    })
+    peerElements.push(newPeerElement)
+    return newPeerElement
+  }
 
   // message notification context
   const [messageApi, messageContextHolder] = message.useMessage()
@@ -70,75 +113,21 @@ export function RoomPage() {
     })
     dispatch(pushNewUserToRoom(user))
 
-    const newPeerElement = peerManager.pushNewPeer(user.socketId)
-    newPeerElement.peer.addEventListener('negotiationneeded', handleNegotiation)
-    newPeerElement.peer.addEventListener('icecandidate', (e) =>
-      handleIceCandidate(e, newPeerElement.peer, user.socketId)
-    )
-    newPeerElement.peer.addEventListener('iceconnectionstatechange', handleRestartIce)
+    const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
 
     if (mediaStream) {
-      console.log('preparing to set track to peer')
-      peerManager.sendStream(newPeerElement.peer, mediaStream)
-    }
-  }
-  const handleNegotiation = async (data: any) => {
-    console.log('negotiation needed')
-    // const localOffer = await createOffer?.()
-    const toPeer = peerElements.find((e) => e.peer === data.srcElement)
-    const localOffer = await peerManager.createOffer(toPeer?.peer!)
-    socket?.emit(SOCKET_EVENT.EMIT.CALL_USER, {
-      offer: localOffer,
-      toSocketId: toPeer?.socketId,
-    })
-  }
-  const handleIceCandidate = (
-    data: RTCPeerConnectionIceEvent,
-    peer: RTCPeerConnection,
-    toSocketId: string
-  ) => {
-    console.log('ice')
-    if (peer.remoteDescription)
-      socket?.emit(SOCKET_EVENT.EMIT.ICE_CANDIDATE, {
-        candidate: data.candidate,
-        toSocketId,
-      })
-  }
-  const handleIceAccepted = async ({ candidate, toSocketId }: any) => {
-    console.log('ice accepted', toSocketId)
-    if (toSocketId && candidate) {
-      const fromPeer = peerElements.find((e) => e.socketId === toSocketId)
-      console.log('fromPeer', fromPeer)
-      if (fromPeer?.peer.remoteDescription && fromPeer?.peer.iceConnectionState === 'new') {
-        await fromPeer?.peer.addIceCandidate(candidate)
-        console.log('ice added')
-      }
-    }
-  }
-  const handleRestartIce = (e: any) => {
-    console.log(e.srcElement.iceConnectionState)
-    if (e.srcElement.iceConnectionState === 'failed') {
-      console.log('ice conflict')
-      e.srcElement.restartIce()
+      await waitApi(500)
+      console.log('calling')
+      newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
     }
   }
   // socket event
-  const handleIncommingCall = async (data: any) => {
-    console.log('have a offer', data)
-    const fromPeer = peerElements.find((e) => e.socketId === data.from.socketId)
-    const ans = await peerManager.createAnswer(fromPeer?.peer!, data.offer)
-    socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
-  }
-  const handleCallAccepted = async (data: any) => {
-    console.log('have a answer', data)
-    const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
-    await peerManager.setRemoteAnswer(fromPeer?.peer!, data.ans)
-  }
   const handleUserDisconnected = (user: User) => {
     notification.info({
       message: `${user.username} left room`,
     })
     dispatch(removeUserFromRoom(user.socketId))
+    // peerInstanceList(streamList.filter((s) => s.socketId !== user.socketId))
   }
   const handleDisconnect = (reason: any) => {
     console.log(reason)
@@ -169,32 +158,16 @@ export function RoomPage() {
   useEffect(() => {
     // new user joined room
     socket?.on(SOCKET_EVENT.ON.USER_CONNECTED, handleNewUserJoined)
-    // new incoming caller
-    socket?.on(SOCKET_EVENT.ON.INCOMMING_CALL, handleIncommingCall)
-    // accept incoming call
-    socket?.on(SOCKET_EVENT.ON.CALL_ACCEPTED, handleCallAccepted)
-    socket?.on(SOCKET_EVENT.ON.ICE_CANDIDATE, handleIceAccepted)
     // user left room
     socket?.on(SOCKET_EVENT.ON.USER_DISCONNECTED, handleUserDisconnected)
     // disconnect
     socket?.on('disconnect', handleDisconnect)
     return () => {
       socket?.off(SOCKET_EVENT.ON.USER_CONNECTED)
-      socket?.off(SOCKET_EVENT.ON.INCOMMING_CALL)
-      socket?.off(SOCKET_EVENT.ON.CALL_ACCEPTED)
-      socket?.off(SOCKET_EVENT.ON.ICE_CANDIDATE)
       socket?.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
       socket?.off('disconnect')
     }
-  }, [
-    socket,
-    handleNewUserJoined,
-    handleIncommingCall,
-    handleCallAccepted,
-    handleIceAccepted,
-    handleUserDisconnected,
-    handleDisconnect,
-  ])
+  }, [socket, handleNewUserJoined, handleUserDisconnected, handleDisconnect])
 
   useEffect(() => {
     if (isOpenCamera || isOpenMic) {
@@ -210,8 +183,8 @@ export function RoomPage() {
 
   useEffect(() => {
     if (mediaStream && roomInfo.members.length > 1) {
-      peerElements.forEach((e) => {
-        peerManager.sendStream(e.peer, mediaStream)
+      peerInstanceList.current.forEach((e) => {
+        e.peer.call(e.socketId + socket.id, mediaStream)
       })
     }
   }, [mediaStream])
@@ -282,7 +255,7 @@ export function RoomPage() {
                     stream={
                       item.socketId === socket?.id
                         ? mediaStream
-                        : peerElements.find((e) => e.socketId === item.socketId)?.remoteStream
+                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
                   />
@@ -316,15 +289,7 @@ export function RoomPage() {
                     value.room.members
                       .filter((m) => m.socketId !== socket.id)
                       .forEach((m) => {
-                        const newPeerEle = peerManager.pushNewPeer(m.socketId)
-                        newPeerEle.peer.addEventListener('negotiationneeded', handleNegotiation)
-                        newPeerEle.peer.addEventListener('icecandidate', (e) =>
-                          handleIceCandidate(e, newPeerEle.peer, newPeerEle?.socketId)
-                        )
-                        newPeerEle.peer.addEventListener(
-                          'iceconnectionstatechange',
-                          handleRestartIce
-                        )
+                        pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
                       })
                     socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
                       roomCode: value.room.code,

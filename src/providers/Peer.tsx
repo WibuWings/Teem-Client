@@ -1,71 +1,29 @@
-import React, {
-  ReactChildren,
-  ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import React, { ReactElement, useState } from 'react'
+
+import Peer from 'peerjs'
 
 const peerElements: PeerElement[] = []
 
 // add new peer
-const pushNewPeer = (socketId: string) => {
-  const peer = new RTCPeerConnection({
-    iceServers: [
-      // {
-      //   urls: ['stun:stun.l.google.com:19302'],
-      // },
-      {
-        urls: 'turn:relay.metered.ca:80',
-        username: 'e6fea73d882f966b44419395',
-        credential: '/xt2mBIUSF+xByHl',
-      },
-    ],
+const pushNewPeer = (selfSocketId: string, ortherSocketId: string) => {
+  const peer = new Peer(selfSocketId + ortherSocketId)
+  peer.on('open', (id) => {
+    console.log(`peer ${id} opened`)
   })
-  let remoteStream = undefined
-  const handleTrackEvent = (e: RTCTrackEvent, peerElement: PeerElement) => {
-    console.log('received stream')
-    peerElement.remoteStream = e.streams[0]
-  }
-
-  const newPeerElement = {
+  const newPeerElement: PeerElement = {
     peer,
-    socketId,
-    remoteStream,
+    socketId: ortherSocketId,
   }
-  newPeerElement.peer.addEventListener('track', (e) => handleTrackEvent(e, newPeerElement))
+  newPeerElement.peer.on('call', (call) => {
+    console.log('on call')
+    call.answer(undefined) // Answer the call with an A/V stream.
+    call.on('stream', (remoteStream) => {
+      // Show stream in some <video> element.
+      newPeerElement.remoteStream = remoteStream
+    })
+  })
   peerElements.push(newPeerElement)
   return newPeerElement
-}
-
-// init offet
-const createOffer = async (peer: RTCPeerConnection) => {
-  const offer = await peer.createOffer()
-  await peer.setLocalDescription(offer)
-  return offer
-}
-//init answer
-const createAnswer = async (peer: RTCPeerConnection, offer: RTCSessionDescriptionInit) => {
-  await peer.setRemoteDescription(offer)
-  const answer = await peer.createAnswer()
-  await peer.setLocalDescription(answer)
-  return answer
-}
-// set remote answer
-const setRemoteAnswer = async (peer: RTCPeerConnection, ans: RTCSessionDescriptionInit) => {
-  await peer.setRemoteDescription(ans)
-}
-// send stream
-const sendStream = (peer: RTCPeerConnection, stream: MediaStream) => {
-  const tracks = stream.getTracks()
-  const sender = peer.getSenders()?.[0]
-  if (sender) {
-    peer.removeTrack(sender)
-  }
-  for (const track of tracks) {
-    peer.addTrack(track, stream)
-  }
 }
 
 type Props = {
@@ -73,20 +31,13 @@ type Props = {
 }
 
 type PeerElement = {
-  peer: RTCPeerConnection
+  peer: Peer
   socketId: string
-  remoteStream: MediaStream | undefined
+  remoteStream?: MediaStream
 }
 
 type PeerManager = {
-  pushNewPeer: (socketId: string) => PeerElement
-  createOffer: (peer: RTCPeerConnection) => Promise<RTCSessionDescriptionInit>
-  createAnswer: (
-    peer: RTCPeerConnection,
-    offer: RTCSessionDescriptionInit
-  ) => Promise<RTCSessionDescriptionInit>
-  setRemoteAnswer: (peer: RTCPeerConnection, ans: RTCSessionDescriptionInit) => Promise<void>
-  sendStream: (peer: RTCPeerConnection, stream: MediaStream) => void
+  pushNewPeer: (selfSocketId: string, ortherSocketId: string) => PeerElement
 }
 
 //init context
@@ -96,10 +47,6 @@ export const PeerContext = React.createContext<{
 }>({
   peerManager: {
     pushNewPeer,
-    createOffer,
-    createAnswer,
-    setRemoteAnswer,
-    sendStream,
   },
   peerElements,
 })
@@ -107,10 +54,6 @@ export const PeerContext = React.createContext<{
 export const PeerProvider = (props: Props) => {
   const [peerManager] = useState<PeerManager>({
     pushNewPeer,
-    createOffer,
-    createAnswer,
-    setRemoteAnswer,
-    sendStream,
   })
 
   return (
