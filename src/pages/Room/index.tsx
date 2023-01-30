@@ -80,7 +80,6 @@ export function RoomPage() {
     if (mediaStream) {
       console.log('preparing to set track to peer')
       peerManager.sendStream(newPeerElement.peer, mediaStream)
-      // sendStream?.(mediaStream)
     }
   }
   const handleNegotiation = async (data: any) => {
@@ -110,12 +109,14 @@ export function RoomPage() {
     if (toSocketId && candidate) {
       const fromPeer = peerElements.find((e) => e.socketId === toSocketId)
       console.log('fromPeer', fromPeer)
-      if (fromPeer?.peer.remoteDescription) {
+      if (fromPeer?.peer.remoteDescription && fromPeer?.peer.iceConnectionState === 'new') {
         await fromPeer?.peer.addIceCandidate(candidate)
+        console.log('ice added')
       }
     }
   }
   const handleRestartIce = (e: any) => {
+    console.log(e.srcElement.iceConnectionState)
     if (e.srcElement.iceConnectionState === 'failed') {
       console.log('ice conflict')
       e.srcElement.restartIce()
@@ -124,7 +125,7 @@ export function RoomPage() {
   // socket event
   const handleIncommingCall = async (data: any) => {
     console.log('have a offer', data)
-    const fromPeer = peerElements.find((e) => e.socketId == data.from.socketId)
+    const fromPeer = peerElements.find((e) => e.socketId === data.from.socketId)
     const ans = await peerManager.createAnswer(fromPeer?.peer!, data.offer)
     socket?.emit(SOCKET_EVENT.EMIT.CALL_ACCEPTED, { ans, toUser: data.from })
   }

@@ -13,8 +13,13 @@ const peerElements: PeerElement[] = []
 const pushNewPeer = (socketId: string) => {
   const peer = new RTCPeerConnection({
     iceServers: [
+      // {
+      //   urls: ['stun:stun.l.google.com:19302'],
+      // },
       {
-        urls: ['stun:stun.l.google.com:19302'],
+        urls: 'turn:relay.metered.ca:80',
+        username: 'e6fea73d882f966b44419395',
+        credential: '/xt2mBIUSF+xByHl',
       },
     ],
   })

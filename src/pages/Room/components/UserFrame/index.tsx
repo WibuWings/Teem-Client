@@ -37,7 +37,6 @@ export function UserFrame<Type>({
   }
 
   useEffect(() => {
-    console.log('=== stream', stream)
     const video = videoRef.current
     if (video) {
       video.srcObject = stream
