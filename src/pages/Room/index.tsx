@@ -87,7 +87,7 @@ export function RoomPage() {
   // message notification context
   const [messageApi, messageContextHolder] = message.useMessage()
   const info = () => {
-    messageApi.warning({
+    messageApi.info({
       content: 'hello',
       icon: <Icon.AlertFilled />,
     })
@@ -103,7 +103,7 @@ export function RoomPage() {
     setIsOpenCamera((cur) => !cur)
   }
   const leaveCall = () => {
-    // navigate(rc(RouteKey.JoinRoom).path)
+    navigate(rc(RouteKey.JoinRoom).path)
     socket?.disconnect()
   }
   // peer event handler
@@ -127,7 +127,6 @@ export function RoomPage() {
       message: `${user.username} left room`,
     })
     dispatch(removeUserFromRoom(user.socketId))
-    // peerInstanceList(streamList.filter((s) => s.socketId !== user.socketId))
   }
   const handleDisconnect = (reason: any) => {
     console.log(reason)
@@ -285,12 +284,22 @@ export function RoomPage() {
                   socketId: socket?.id ?? '',
                 })
                   .unwrap()
-                  .then((value) => {
+                  .then(async (value) => {
                     value.room.members
                       .filter((m) => m.socketId !== socket.id)
                       .forEach((m) => {
-                        pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
+                        const newPeer = pushNewPeer(
+                          peerInstanceList.current,
+                          socket.id,
+                          m.socketId
+                        )
                       })
+                    if (mediaStream) {
+                      await waitApi(500)
+                      peerInstanceList.current.forEach((p) =>
+                        p.peer.call(p.socketId + socket.id, mediaStream)
+                      )
+                    }
                     socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
                       roomCode: value.room.code,
                       socketId: socket.id,

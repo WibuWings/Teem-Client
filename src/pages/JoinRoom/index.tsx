@@ -1,15 +1,23 @@
 import { PAGE_INFO } from '@/constants/page'
+import { useSocketContext } from '@/hooks'
 import { rc, RouteKey } from '@/routes'
 import { getResourceUrl } from '@/transforms/url'
 import { Button, Card, Form, Input } from 'antd'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import styles from './style.module.less'
 
 export function JoinRoom() {
   const navigate = useNavigate()
+  const { socket } = useSocketContext()
   const [form] = Form.useForm<{ roomCode: string }>()
+
+  useEffect(() => {
+    if (socket.disconnected) {
+      socket.connect()
+    }
+  }, [socket])
 
   const handleJoinRoom = () =>
     form
@@ -32,7 +40,7 @@ export function JoinRoom() {
         <Form layout="inline" form={form}>
           <Form.Item
             name="roomCode"
-            style={{ flex: 1 }}
+            style={{ width: '100%' }}
             rules={[
               {
                 required: true,
@@ -44,11 +52,13 @@ export function JoinRoom() {
               },
             ]}
           >
-            <Input></Input>
+            <Input.Search
+              enterButton={<Button type="primary">JOIN ROOM</Button>}
+              onSearch={handleJoinRoom}
+              style={{ width: '100%' }}
+              autoFocus={true}
+            ></Input.Search>
           </Form.Item>
-          <Button type="primary" onClick={handleJoinRoom}>
-            JOIN ROOM
-          </Button>
         </Form>
       </Card>
     </div>

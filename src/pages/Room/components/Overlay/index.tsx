@@ -94,7 +94,7 @@ export function Overlay(props: Props) {
         <Form layout="inline" initialValues={{ userID: '' }} form={form}>
           <Form.Item
             name="username"
-            style={{ flex: 1 }}
+            style={{ width: '100%' }}
             rules={[
               {
                 required: true,
@@ -102,11 +102,17 @@ export function Overlay(props: Props) {
               },
             ]}
           >
-            <Input></Input>
+            <Input.Search
+              enterButton={
+                <Button type="primary" style={{ width: '100%' }}>
+                  ENTER NAME
+                </Button>
+              }
+              onSearch={handleSubmit}
+              style={{ width: '100%' }}
+              autoFocus
+            ></Input.Search>
           </Form.Item>
-          <Button type="primary" onClick={handleSubmit}>
-            ENTER NAME ID
-          </Button>
         </Form>
       </Card>
     </div>

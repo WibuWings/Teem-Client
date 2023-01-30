@@ -4,8 +4,6 @@ import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { rc, RouteKey } from '@/routes'
 import styles from './style.module.less'
-import ReactPlayer from 'react-player'
-import { url } from 'inspector'
 
 export function UserFrame<Type>({
   user,
@@ -22,7 +20,7 @@ export function UserFrame<Type>({
 }): ReactElement {
   const params = useParams()
   const navigate = useNavigate()
-
+  // auto resize video
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [isOpenMic, setIsOpenMic] = useState(false)
 
@@ -49,6 +47,7 @@ export function UserFrame<Type>({
       }
     }
   }, [videoRef.current, stream])
+
   return (
     <div
       className={styles['user-frame']}
@@ -68,12 +67,6 @@ export function UserFrame<Type>({
         }}
       >
         <Button
-          type={isOpenMic ? 'primary' : 'default'}
-          onClick={toggleOpenMic}
-          icon={isOpenMic ? <Icon.AudioOutlined /> : <Icon.AudioMutedOutlined />}
-          size="small"
-        ></Button>
-        <Button
           type={isPin ? 'primary' : 'default'}
           onClick={() => {
             onClickPin(user)
@@ -81,19 +74,12 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
-        <Button
-          onClick={leaveCall}
-          icon={<Icon.CloseOutlined />}
-          danger
-          type="primary"
-          size="small"
-        ></Button>
       </Space>
       <video
         ref={videoRef}
         autoPlay
         muted
-        style={{ height: '200px', width: '200px', objectFit: 'contain' }}
+        style={{ height: 'auto', width: '160px', objectFit: 'contain' }}
       />
     </div>
   )
