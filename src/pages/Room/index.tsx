@@ -116,7 +116,7 @@ export function RoomPage() {
     const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
 
     if (mediaStream) {
-      await waitApi(500)
+      await waitApi(2000)
       console.log('calling')
       newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
     }
@@ -295,7 +295,7 @@ export function RoomPage() {
                         )
                       })
                     if (mediaStream) {
-                      await waitApi(500)
+                      await waitApi(2000)
                       peerInstanceList.current.forEach((p) =>
                         p.peer.call(p.socketId + socket.id, mediaStream)
                       )

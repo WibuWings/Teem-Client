@@ -16,7 +16,7 @@ export const NotFoundPage: React.FC = () => (
       status="warning"
       title="404 NOT FOUND"
       extra={
-        <Link to={rc(RouteKey.Dashboard).path}>
+        <Link to={rc(RouteKey.JoinRoom).path}>
           <Button type="link">Go Home</Button>
         </Link>
       }
