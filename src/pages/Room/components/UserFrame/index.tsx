@@ -1,4 +1,4 @@
-import { Button, Space } from 'antd'
+import { Button, Space, Spin } from 'antd'
 import React, { ReactElement, useEffect, useRef, useState } from 'react'
 import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -64,6 +64,7 @@ export function UserFrame<Type>({
           left: '10px',
           top: '10px',
           visibility: isOpenCam ? 'visible' : 'hidden',
+          zIndex: 1000
         }}
       >
         <Button
@@ -75,12 +76,12 @@ export function UserFrame<Type>({
           size="small"
         ></Button>
       </Space>
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        style={{ height: 'auto', width: '160px', objectFit: 'contain' }}
-      />
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          style={{ height: '100%', width: '100%', objectFit: 'contain' }}
+        />
     </div>
   )
 }
