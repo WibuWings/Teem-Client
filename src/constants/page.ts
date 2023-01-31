@@ -1,5 +1,7 @@
 export const PAGE_INFO = {
-  JOIN_ROOM: '/images/join-room.jpg',
+  JOIN_ROOM: '/images/join_room.png',
+  BACKGROUND: '/images/background.jpg',
+  AVATAR: '/images/peer_default_avatar.jpg',
 }
 
 export const IMAGE_PLACEHOLDER =

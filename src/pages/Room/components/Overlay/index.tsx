@@ -56,56 +56,69 @@ export function Overlay(props: Props) {
     }
   }, [videoRef.current, props.stream])
   return (
-    <div className={styles['form-wrapper']}>
-      <Card className={styles.card}>
-        {!isOpenCamera ? (
-          <img
-            className={styles.image}
-            src={getResourceUrl(PAGE_INFO.JOIN_ROOM)}
-            alt="some-image"
-          />
-        ) : (
-          <video
-            style={{
-              backgroundColor: 'black',
-            }}
-            className={styles.image}
-            ref={videoRef}
-            muted
-          />
-        )}
-        <Space
+    <div className={styles['form-wrapper']}   
+      style = {{ backgroundImage: `url("${getResourceUrl(PAGE_INFO.BACKGROUND)}") `   }} >
+      <Card className={styles.card} style= {{backgroundColor : 'transparent', border:'1px solid transparent'}}>
+      
+          <div>
+            {!isOpenCamera ? (
+              <img
+                className={styles.image}
+                src={getResourceUrl(PAGE_INFO.AVATAR)}
+                alt="some-image"
+                style={{objectFit:'contain',}}
+                
+              />
+            ) : (
+              <video
+                style={{
+                  backgroundColor: 'transparent',
+                }}
+                className={styles.image}
+                ref={videoRef}
+                muted
+              />
+            )}
+            <Space
           className={styles['btn-control']}
           style={{ marginBottom: 20, width: '100%', justifyContent: 'center' }}
         >
           <Button
             type={isOpenMic ? 'primary' : 'default'}
             onClick={toggleOpenMic}
-            icon={isOpenMic ? <Icon.AudioOutlined /> : <Icon.AudioMutedOutlined />}
+            icon={isOpenMic ? <Icon.AudioFilled /> : <Icon.AudioTwoTone />}
             size="large"
+            autoFocus={false}
+            style = {{border:'2px solid #54545454'}}
           ></Button>
           <Button
             type={isOpenCamera ? 'primary' : 'default'}
             onClick={toggleOpenCamera}
-            icon={isOpenCamera ? <Icon.CameraOutlined /> : <Icon.CameraOutlined />}
+            icon={isOpenCamera ? <Icon.CameraFilled /> : <Icon.CameraTwoTone />}
             size="large"
+            autoFocus={false}
+            style = {{border:'2px solid #54545454'}}
+
           ></Button>
         </Space>
+          </div>
+        
         <Form layout="inline" initialValues={{ userID: '' }} form={form}>
           <Form.Item
             name="username"
-            style={{ flex: 1 }}
+            style={{ flex: 1 , }}
             rules={[
               {
                 required: true,
                 message: 'Please enter a username',
               },
             ]}
+            
           >
-            <Input></Input>
+            <Input placeholder='Enter your name'></Input>
           </Form.Item>
-          <Button type="primary" onClick={handleSubmit}>
-            ENTER NAME ID
+          <Button type="primary" onClick={handleSubmit} style={{fontWeight:600}}>
+            JOIN ROOM
           </Button>
         </Form>
       </Card>
