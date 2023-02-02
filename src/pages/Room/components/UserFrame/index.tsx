@@ -64,7 +64,7 @@ export function UserFrame<Type>({
           left: '10px',
           top: '10px',
           visibility: isOpenCam ? 'visible' : 'hidden',
-          zIndex: 1000
+          zIndex: 1000,
         }}
       >
         <Button
@@ -76,12 +76,12 @@ export function UserFrame<Type>({
           size="small"
         ></Button>
       </Space>
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          style={{ height: '100%', width: '100%', objectFit: 'contain' }}
-        />
+      <video
+        ref={videoRef}
+        autoPlay
+        muted={muted}
+        style={{ height: '100%', width: '100%', objectFit: 'contain' }}
+      />
     </div>
   )
 }

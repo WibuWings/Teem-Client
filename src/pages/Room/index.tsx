@@ -18,6 +18,9 @@ import { useJoinRoomMutation } from './apiSlice'
 import { JoinRoomDTO, User, Room } from './model'
 import Peer from 'peerjs'
 import { waitApi } from '@/utils/async'
+import { io, Socket } from 'socket.io-client'
+import { API_URL } from '@/config'
+import { trackForMutations } from '@reduxjs/toolkit/dist/immutableStateInvariantMiddleware'
 
 type PeerElement = {
   peer: Peer
@@ -33,6 +36,11 @@ export function RoomPage() {
   // socket & peer
   const { socket } = useSocketContext()
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
+  // screen
+  const screenStreamRef = useRef<MediaStream | undefined>()
+  const screenSocketRef = useRef<Socket<any, any> | undefined>()
+  const screenPeerInstanceList = useRef<PeerElement[]>([])
+  //
   const peerInstanceList = useRef<PeerElement[]>([])
   const [streamList, setStreamList] = useState<
     {
@@ -49,6 +57,7 @@ export function RoomPage() {
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setIsOpenCamera] = useState(false)
+  const [isShareScreen, setIsShareScreen] = useState(false)
   const [pinUser, setPinUser] = useState<User | undefined>()
 
   const pushNewPeer = (
@@ -102,31 +111,107 @@ export function RoomPage() {
   const toggleOpenCamera = () => {
     setIsOpenCamera((cur) => !cur)
   }
+  const toggleShareScreen = async () => {
+    if (!isShareScreen) {
+      setIsShareScreen(true)
+      try {
+        const screenMedia = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: true,
+        })
+        if (!screenSocketRef.current) {
+          screenSocketRef.current = io(API_URL)
+        } else {
+          screenSocketRef.current.connect()
+        }
+
+        screenMedia.getTracks().forEach((track) => {
+          track.onended = () => {
+            console.log('end share screen media')
+            setIsShareScreen(false)
+            screenSocketRef.current?.disconnect()
+          }
+        })
+        screenStreamRef.current = screenMedia
+        await waitApi(1000)
+        joinRoom({
+          roomCode: searchParams.get('roomCode')!,
+          username: roomInfo.members.find((m) => m.socketId === socket.id)?.username + '(Share)',
+          socketId: screenSocketRef.current?.id ?? '',
+        })
+          .unwrap()
+          .then(async (value) => {
+            value.room.members
+              .filter((m) => m.socketId !== screenSocketRef.current?.id)
+              .forEach((m) => {
+                const newPeer = pushNewPeer(
+                  screenPeerInstanceList.current,
+                  screenSocketRef.current!.id,
+                  m.socketId
+                )
+              })
+            await waitApi(2000)
+            screenPeerInstanceList.current.forEach((p) =>
+              p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
+            )
+            screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+              roomCode: value.room.code,
+              socketId: screenSocketRef.current.id,
+            })
+          })
+      } catch (err: any) {
+        console.log(err.name + ': ' + err.message)
+      }
+    } else {
+      setIsShareScreen(false)
+      console.log('end share screen media')
+      screenStreamRef.current?.getTracks().forEach((track) => track.stop())
+      screenSocketRef.current?.disconnect()
+    }
+  }
   const leaveCall = () => {
     navigate(rc(RouteKey.JoinRoom).path)
     socket?.disconnect()
   }
   // peer event handler
   const handleNewUserJoined = async (user: User) => {
-    notification.info({
-      message: `${user.username} joined room`,
-    })
-    dispatch(pushNewUserToRoom(user))
+    if (user.socketId !== screenSocketRef.current?.id) {
+      if (user.username.includes('Share')) {
+        setIsShareScreen(false)
+        screenStreamRef.current?.getTracks().forEach((track) => track.stop())
+        screenSocketRef.current?.disconnect()
+      }
+      notification.info({
+        message: user.username.includes('Share')
+          ? `${user.username} shared screen`
+          : `${user.username} joined room`,
+      })
+      dispatch(pushNewUserToRoom(user))
 
-    const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
+      const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
 
-    if (mediaStream) {
-      await waitApi(2000)
-      console.log('calling')
-      newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
+      if (mediaStream) {
+        await waitApi(2000)
+        console.log('calling')
+        newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
+      }
+      if (screenStreamRef.current) {
+        await waitApi(2000)
+        console.log('calling')
+        newPeerElement.peer.call(user.socketId + socket.id, screenStreamRef.current)
+      }
     }
   }
   // socket event
   const handleUserDisconnected = (user: User) => {
-    notification.info({
-      message: `${user.username} left room`,
-    })
-    dispatch(removeUserFromRoom(user.socketId))
+    if (roomInfo.members.find((m) => m.socketId === user.socketId)) {
+      if (!user.username.includes('Share')) {
+        notification.info({
+          message: `${user.username} left room`,
+        })
+      }
+      dispatch(removeUserFromRoom(user.socketId))
+    }
   }
   const handleDisconnect = (reason: any) => {
     console.log(reason)
@@ -178,7 +263,7 @@ export function RoomPage() {
     if (!isOpenCamera) {
       mediaStream?.getVideoTracks()?.[0]?.stop()
     }
-  }, [isOpenCamera])
+  }, [isOpenCamera, isOpenMic])
 
   useEffect(() => {
     if (mediaStream && roomInfo.members.length > 1) {
@@ -216,8 +301,8 @@ export function RoomPage() {
                   size="large"
                 ></Button>
                 <Button
-                  type={isCollapsedMessage ? 'default' : 'primary'}
-                  onClick={toggleCollapsMessage}
+                  type={isShareScreen ? 'primary' : 'default'}
+                  onClick={toggleShareScreen}
                   icon={<Icon.LaptopOutlined />}
                   size="large"
                 ></Button>
@@ -254,6 +339,8 @@ export function RoomPage() {
                     stream={
                       item.socketId === socket?.id
                         ? mediaStream
+                        : item.socketId === screenSocketRef.current?.id
+                        ? screenStreamRef.current
                         : streamList.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
