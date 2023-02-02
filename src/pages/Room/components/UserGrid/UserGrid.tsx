@@ -34,7 +34,7 @@ export function UserGrid<Type>({
             gap: '20px',
           }}
         >
-          <div style={{ height: '60%', backgroundColor: 'yellow' }}>
+          <div style={{ height: '60%', backgroundColor: 'red' }}>
             {renderItems(pinUser, 0)}
           </div>
           <div

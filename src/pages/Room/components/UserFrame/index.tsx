@@ -4,6 +4,10 @@ import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { rc, RouteKey } from '@/routes'
 import styles from './style.module.less'
+import { getResourceUrl } from '@/transforms/url'
+import { PAGE_INFO } from '@/constants/page'
+import { User } from '../../model'
+
 
 export function UserFrame<Type>({
   user,
@@ -58,6 +62,7 @@ export function UserFrame<Type>({
         setIsOpenCam(false)
       }}
     >
+    
       <Space
         style={{
           position: 'absolute',
@@ -75,12 +80,13 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
+        <h3 style={{color: 'white'  }}>{(user as User).username}</h3>
       </Space>
         <video
           ref={videoRef}
           autoPlay
           muted
-          style={{ height: '100%', width: '100%', objectFit: 'contain' }}
+          style={{ height: '100%', width: '100%', objectFit: 'contain', backgroundColor: 'yellow'}}
         />
     </div>
   )
