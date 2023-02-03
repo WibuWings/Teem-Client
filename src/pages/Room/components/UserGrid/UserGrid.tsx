@@ -59,8 +59,11 @@ export function UserGrid<Type>({
         <div
           className={styles['user-grid']}
           style={{
+            height: '100%',
+            width: '100%',
             gridTemplateColumns: `repeat(${calculateColumn(users.length)},1fr)`,
             gridTemplateRows: `repeat(${calculateRow(users.length)}, 1fr)`,
+            backgroundColor: 'transparent'
           }}
         >
           {users.map(renderItems)}

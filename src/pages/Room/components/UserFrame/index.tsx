@@ -1,4 +1,4 @@
-import { Button, Space, Spin } from 'antd'
+import { Button, Card, Space, Spin } from 'antd'
 import React, { ReactElement, useEffect, useRef, useState } from 'react'
 import * as Icon from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -15,11 +15,13 @@ export function UserFrame<Type>({
   onClickPin,
   stream,
   muted,
+  isTurnOnCamera
 }: {
   user: Type
   isPin: boolean
   stream?: MediaStream
   muted: boolean
+  isTurnOnCamera:boolean
   onClickPin: (user: Type) => void
 }): ReactElement {
   const params = useParams()
@@ -61,15 +63,16 @@ export function UserFrame<Type>({
       onMouseOut={(e) => {
         setIsOpenCam(false)
       }}
+      style = {{alignItems: 'center', justifyItems: 'center', backgroundColor: '#C5C5C5',  borderRadius: '32px',}}
     >
     
       <Space
         style={{
           position: 'absolute',
-          left: '10px',
-          top: '10px',
           visibility: isOpenCam ? 'visible' : 'hidden',
           zIndex: 1000,
+          marginTop: '20px',
+          marginLeft: '20px'
         }}
       >
         <Button
@@ -80,14 +83,63 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
-        <h3 style={{color: 'white'  }}>{(user as User).username}</h3>
-      </Space>
-        <video
+      </Space>      
+      {isTurnOnCamera === false ? 
+      (
+        <div style={{height:'100%', width:'100%', position: 'relative',  }}>
+          <img
+          className={styles.image}
+          src={getResourceUrl(PAGE_INFO.USER_FRAME)}
+          style={{ 
+            height: '100px', 
+            width: '100px', 
+            objectFit: 'cover',
+            position: 'absolute', 
+            top : '50%', 
+            right: '50%', 
+            marginTop: '-50px', 
+            marginRight: '-50px'}}
+        />
+        <h3 style={{
+          color: 'white' , 
+          position: 'absolute', 
+          bottom: '0%',
+          marginBottom: '24px', 
+          marginLeft: '24px'}}>
+          {(user as User).username}
+        </h3>
+        </div>
+       
+      ):
+      (
+        <div style={{height:'100%', width:'100%', position: 'relative',}}>
+          <video
           ref={videoRef}
           autoPlay
           muted
-          style={{ height: '100%', width: '100%', objectFit: 'contain', backgroundColor: 'yellow'}}
+          playsInline
+          style={{ 
+            height: '100%', 
+            width: '100%', 
+            objectFit: 'contain', 
+            borderRadius: '32px',
+            backgroundColor: 'transparent',
+            maxHeight: window.innerHeight - 80 ,
+            maxWidth: window.innerWidth - 40,
+          }}
         />
+        <h3 style={{
+          color: 'white' , 
+          position: 'absolute', 
+          bottom: '0%',
+          marginBottom: '24px', 
+          marginLeft: '24px'}}>
+          {(user as User).username}
+        </h3>
+        </div>
+
+      )}
+     
     </div>
   )
 }
