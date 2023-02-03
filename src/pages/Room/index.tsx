@@ -325,6 +325,7 @@ export function RoomPage() {
                 ></Button>
               </Space>
               <UserGrid<User>
+                
                 pinUser={pinUser}
                 users={roomInfo.members}
                 renderItems={(item, idx) => (
@@ -354,6 +355,7 @@ export function RoomPage() {
                         ? isOpenCamera
                         : streamList.find((e) => e.socketId === item.socketId)?.remoteStream !== undefined
                     }
+                    isYou = {item.socketId === socket?.id ? true: false}
                   />
                 )}
               />

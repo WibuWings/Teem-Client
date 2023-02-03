@@ -15,13 +15,15 @@ export function UserFrame<Type>({
   onClickPin,
   stream,
   muted,
-  isTurnOnCamera
+  isTurnOnCamera,
+  isYou,
 }: {
   user: Type
   isPin: boolean
   stream?: MediaStream
   muted: boolean
   isTurnOnCamera:boolean
+  isYou: boolean
   onClickPin: (user: Type) => void
 }): ReactElement {
   const params = useParams()
@@ -91,12 +93,16 @@ export function UserFrame<Type>({
           className={styles.image}
           src={getResourceUrl(PAGE_INFO.USER_FRAME)}
           style={{ 
-            height: '100px', 
-            width: '100px', 
+            height: '100%', 
+            width: '100%', 
             objectFit: 'cover',
             position: 'absolute', 
             top : '50%', 
             right: '50%', 
+            minHeight: '10px',
+            minWidth: '10px',
+            maxHeight: '100px',
+            maxWidth: '100px',
             marginTop: '-50px', 
             marginRight: '-50px'}}
         />
@@ -106,7 +112,14 @@ export function UserFrame<Type>({
           bottom: '0%',
           marginBottom: '24px', 
           marginLeft: '24px'}}>
-          {(user as User).username}
+          {
+             isYou? (
+              'You'
+             ):
+             (
+              (user as User).username
+             )
+          }
         </h3>
         </div>
        
@@ -126,6 +139,9 @@ export function UserFrame<Type>({
             backgroundColor: 'transparent',
             maxHeight: window.innerHeight - 80 ,
             maxWidth: window.innerWidth - 40,
+            minHeight: '30px',
+            minWidth: '30px'
+
           }}
         />
         <h3 style={{
@@ -145,5 +161,14 @@ export function UserFrame<Type>({
 }
 
 export function OverflowUser({ numberOverflow }: { numberOverflow: number }) {
-  return <div className={styles['user-frame']}>+{numberOverflow}</div>
+  return <div className={styles['user-frame']}>
+    <h3 style={{
+          color: 'white' , 
+          position: 'absolute', 
+          bottom: '50%',
+          marginBottom: '24px', 
+          marginLeft: '50px'}}>
+    + {numberOverflow} participants
+    </h3>
+    </div>
 }
