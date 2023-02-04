@@ -174,6 +174,7 @@ export function RoomPage() {
   const leaveCall = () => {
     screenSocketRef.current?.disconnect()
     screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
+    mediaStream?.getTracks().forEach((track) => track.stop())
     socket?.disconnect()
     navigate(rc(RouteKey.JoinRoom).path)
     dispatch(leaveRoom())
@@ -226,8 +227,9 @@ export function RoomPage() {
     }
   }
   const handleDisconnect = (reason: any) => {
+    alert('Disconnect')
     console.log(reason)
-    socket?.io.on('reconnect', () => {
+    socket?.on('connect', () => {
       console.log('attempt to reconnect')
       joinRoom({
         roomCode: searchParams.get('roomCode')!,
