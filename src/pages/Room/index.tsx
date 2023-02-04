@@ -21,6 +21,8 @@ import { waitApi } from '@/utils/async'
 import { io, Socket } from 'socket.io-client'
 import { API_URL } from '@/config'
 import { trackForMutations } from '@reduxjs/toolkit/dist/immutableStateInvariantMiddleware'
+import { getResourceUrl } from '@/transforms/url'
+import { PAGE_INFO } from '@/constants/page'
 
 type PeerElement = {
   peer: Peer
@@ -278,7 +280,8 @@ export function RoomPage() {
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   return (
     <Spin spinning={isLoadingJoinRoom}>
-      <Layout className={styles.room}>
+      <Layout className={styles.room} 
+       style = {{ backgroundImage: `url("${getResourceUrl(PAGE_INFO.BACKGROUND)}") `   }} >
         {messageContextHolder}
         {!isInLobby ? (
           <>
@@ -324,6 +327,7 @@ export function RoomPage() {
                 ></Button>
               </Space>
               <UserGrid<User>
+                
                 pinUser={pinUser}
                 users={roomInfo.members}
                 renderItems={(item, idx) => (
@@ -346,6 +350,14 @@ export function RoomPage() {
                         : streamList.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
+                    isTurnOnCamera = {
+                      item.socketId === socket?.id
+                      ? isOpenCamera: 
+                      item.socketId === screenSocketRef.current?.id
+                        ? isOpenCamera
+                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream !== undefined
+                    }
+                    isYou = {item.socketId === socket?.id ? true: false}
                   />
                 )}
               />

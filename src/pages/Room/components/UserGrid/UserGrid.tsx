@@ -34,7 +34,7 @@ export function UserGrid<Type>({
             gap: '20px',
           }}
         >
-          <div style={{ height: '60%', backgroundColor: 'yellow' }}>
+          <div style={{ height: '80%', backgroundColor: 'transparent' }}>
             {renderItems(pinUser, 0)}
           </div>
           <div
@@ -59,8 +59,11 @@ export function UserGrid<Type>({
         <div
           className={styles['user-grid']}
           style={{
+            height: '100%',
+            width: '100%',
             gridTemplateColumns: `repeat(${calculateColumn(users.length)},1fr)`,
             gridTemplateRows: `repeat(${calculateRow(users.length)}, 1fr)`,
+            backgroundColor: 'transparent'
           }}
         >
           {users.map(renderItems)}
