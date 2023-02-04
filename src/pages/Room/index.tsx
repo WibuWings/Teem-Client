@@ -225,7 +225,8 @@ export function RoomPage() {
   }
   const handleDisconnect = (reason: any) => {
     console.log(reason)
-    socket?.on('connect', () => {
+    socket?.io.on('reconnect', () => {
+      console.log('attempt to reconnect')
       joinRoom({
         roomCode: searchParams.get('roomCode')!,
         username: roomInfo.members.find((m) => m.socketId === socket.id)?.username!,
