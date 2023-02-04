@@ -12,7 +12,7 @@ import { IncallMessage } from './components/IncallMessage'
 import { UserFrame } from './components/UserFrame'
 import { Overlay } from './components/Overlay'
 import { useAppDispatch, useAppSelector, usePeerContext, useSocketContext } from '@/hooks'
-import { pushNewUserToRoom, removeUserFromRoom } from './slice'
+import { leaveRoom, pushNewUserToRoom, removeUserFromRoom } from './slice'
 import { SOCKET_EVENT } from '@/providers/Socket'
 import { useJoinRoomMutation } from './apiSlice'
 import { JoinRoomDTO, User, Room } from './model'
@@ -173,8 +173,10 @@ export function RoomPage() {
   }
   const leaveCall = () => {
     screenSocketRef.current?.disconnect()
+    screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
     socket?.disconnect()
     navigate(rc(RouteKey.JoinRoom).path)
+    dispatch(leaveRoom())
   }
   const shareRoom = () => {
     navigator.clipboard.writeText(window.location.href)
