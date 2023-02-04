@@ -150,7 +150,7 @@ export function RoomPage() {
                   m.socketId
                 )
               })
-            await waitApi(2000)
+            await waitApi(3000)
             screenPeerInstanceList.current.forEach((p) =>
               p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
             )
@@ -191,12 +191,12 @@ export function RoomPage() {
       const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
 
       if (mediaStream) {
-        await waitApi(2000)
+        await waitApi(3000)
         console.log('calling')
         newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
       }
       if (screenStreamRef.current) {
-        await waitApi(2000)
+        await waitApi(3000)
         console.log('calling')
         newPeerElement.peer.call(user.socketId + socket.id, screenStreamRef.current)
       }
@@ -217,6 +217,8 @@ export function RoomPage() {
     console.log(reason)
     if (reason === 'io server disconnect') {
       socket?.connect()
+    } else {
+      leaveCall()
     }
   }
   // get stream
@@ -382,7 +384,7 @@ export function RoomPage() {
                         )
                       })
                     if (mediaStream) {
-                      await waitApi(2000)
+                      await waitApi(3000)
                       peerInstanceList.current.forEach((p) =>
                         p.peer.call(p.socketId + socket.id, mediaStream)
                       )
