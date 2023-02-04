@@ -172,9 +172,9 @@ export function RoomPage() {
     }
   }
   const leaveCall = () => {
-    navigate(rc(RouteKey.JoinRoom).path)
-    socket?.disconnect()
     screenSocketRef.current?.disconnect()
+    socket?.disconnect()
+    navigate(rc(RouteKey.JoinRoom).path)
   }
   const shareRoom = () => {
     navigator.clipboard.writeText(window.location.href)
