@@ -98,8 +98,8 @@ export function UserFrame<Type>({
         ></Button> */}
       </Space>
       {stream === undefined ||
-      stream.getVideoTracks()?.[0].muted ||
-      stream.getVideoTracks()?.[0].readyState === 'ended' ? (
+      stream.getVideoTracks()?.[0]?.muted ||
+      stream.getVideoTracks()?.[0]?.readyState === 'ended' ? (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
             className={styles.image}
