@@ -8,7 +8,6 @@ import { getResourceUrl } from '@/transforms/url'
 import { PAGE_INFO } from '@/constants/page'
 import { User } from '../../model'
 
-
 export function UserFrame<Type>({
   user,
   isPin,
@@ -22,7 +21,7 @@ export function UserFrame<Type>({
   isPin: boolean
   stream?: MediaStream
   muted: boolean
-  isTurnOnCamera:boolean
+  isTurnOnCamera: boolean
   isYou: boolean
   onClickPin: (user: Type) => void
 }): ReactElement {
@@ -65,16 +64,20 @@ export function UserFrame<Type>({
       onMouseOut={(e) => {
         setIsOpenCam(false)
       }}
-      style = {{alignItems: 'center', justifyItems: 'center', backgroundColor: '#C5C5C5',  borderRadius: '32px',}}
+      style={{
+        alignItems: 'center',
+        justifyItems: 'center',
+        backgroundColor: '#C5C5C5',
+        borderRadius: '32px',
+      }}
     >
-    
       <Space
         style={{
           position: 'absolute',
           visibility: isOpenCam ? 'visible' : 'hidden',
           zIndex: 1000,
           marginTop: '20px',
-          marginLeft: '20px'
+          marginLeft: '20px',
         }}
       >
         <Button
@@ -85,90 +88,89 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
-      </Space>      
-      {isTurnOnCamera === false ? 
-      (
-        <div style={{height:'100%', width:'100%', position: 'relative',  }}>
+      </Space>
+      {isTurnOnCamera === false ? (
+        <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
-          className={styles.image}
-          src={getResourceUrl(PAGE_INFO.USER_FRAME)}
-          style={{ 
-            height: '100%', 
-            width: '100%', 
-            objectFit: 'cover',
-            position: 'absolute', 
-            top : '50%', 
-            right: '50%', 
-            minHeight: '10px',
-            minWidth: '10px',
-            maxHeight: '100px',
-            maxWidth: '100px',
-            marginTop: '-50px', 
-            marginRight: '-50px'}}
-        />
-        <h3 style={{
-          color: 'white' , 
-          position: 'absolute', 
-          bottom: '0%',
-          marginBottom: '24px', 
-          marginLeft: '24px'}}>
-          {
-             isYou? (
-              'You'
-             ):
-             (
-              (user as User).username
-             )
-          }
-        </h3>
+            className={styles.image}
+            src={getResourceUrl(PAGE_INFO.USER_FRAME)}
+            style={{
+              height: '100%',
+              width: '100%',
+              objectFit: 'cover',
+              position: 'absolute',
+              top: '50%',
+              right: '50%',
+              minHeight: '10px',
+              minWidth: '10px',
+              maxHeight: '100px',
+              maxWidth: '100px',
+              marginTop: '-50px',
+              marginRight: '-50px',
+            }}
+          />
+          <h3
+            style={{
+              color: 'white',
+              position: 'absolute',
+              bottom: '0%',
+              marginBottom: '24px',
+              marginLeft: '24px',
+            }}
+          >
+            {isYou ? 'You' : (user as User).username}
+          </h3>
         </div>
-       
-      ):
-      (
-        <div style={{height:'100%', width:'100%', position: 'relative',}}>
+      ) : (
+        <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          style={{ 
-            height: '100%', 
-            width: '100%', 
-            objectFit: 'contain', 
-            borderRadius: '32px',
-            backgroundColor: 'transparent',
-            maxHeight: window.innerHeight - 80 ,
-            maxWidth: window.innerWidth - 40,
-            minHeight: '30px',
-            minWidth: '30px'
-
-          }}
-        />
-        <h3 style={{
-          color: 'white' , 
-          position: 'absolute', 
-          bottom: '0%',
-          marginBottom: '24px', 
-          marginLeft: '24px'}}>
-          {(user as User).username}
-        </h3>
+            ref={videoRef}
+            autoPlay
+            muted={muted}
+            playsInline
+            style={{
+              height: '100%',
+              width: '100%',
+              objectFit: 'contain',
+              borderRadius: '32px',
+              backgroundColor: 'transparent',
+              maxHeight: window.innerHeight - 80,
+              maxWidth: window.innerWidth - 40,
+              minHeight: '30px',
+              minWidth: '30px',
+            }}
+          />
+          <h3
+            style={{
+              color: 'white',
+              position: 'absolute',
+              bottom: '0%',
+              marginBottom: '24px',
+              marginLeft: '24px',
+            }}
+          >
+            {(user as User).username}
+          </h3>
         </div>
-
       )}
-     
     </div>
   )
 }
 
 export function OverflowUser({ numberOverflow }: { numberOverflow: number }) {
-  return <div className={styles['user-frame']}>
-    <h3 style={{
-          color: 'white' , 
-          position: 'absolute', 
+  return (
+    <div className={styles['user-frame']}>
+      <h3
+        style={{
+          color: 'white',
+          position: 'absolute',
           bottom: '50%',
-          marginBottom: '24px', 
-          marginLeft: '50px'}}>
-    + {numberOverflow} participants
-    </h3>
+          marginBottom: '24px',
+          marginLeft: '50px',
+        }}
+      >
+        + {numberOverflow} participants
+      </h3>
     </div>
+  )
 }
