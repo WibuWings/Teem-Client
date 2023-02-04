@@ -135,34 +135,7 @@ export function RoomPage() {
           }
         })
         screenStreamRef.current = screenMedia
-        screenSocketRef.current?.on('connect', () => {
-          joinRoom({
-            roomCode: searchParams.get('roomCode')!,
-            username:
-              roomInfo.members.find((m) => m.socketId === socket.id)?.username + '(Share)',
-            socketId: screenSocketRef.current?.id ?? '',
-          })
-            .unwrap()
-            .then(async (value) => {
-              value.room.members
-                .filter((m) => m.socketId !== screenSocketRef.current?.id)
-                .forEach((m) => {
-                  const newPeer = pushNewPeer(
-                    screenPeerInstanceList.current,
-                    screenSocketRef.current!.id,
-                    m.socketId
-                  )
-                })
-              await waitApi(3000)
-              screenPeerInstanceList.current.forEach((p) =>
-                p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
-              )
-              screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-                roomCode: value.room.code,
-                socketId: screenSocketRef.current.id,
-              })
-            })
-        })
+        await waitApi(2000)
         joinRoom({
           roomCode: searchParams.get('roomCode')!,
           username: roomInfo.members.find((m) => m.socketId === socket.id)?.username + '(Share)',
@@ -252,6 +225,31 @@ export function RoomPage() {
   }
   const handleDisconnect = (reason: any) => {
     console.log(reason)
+    socket?.on('connect', () => {
+      joinRoom({
+        roomCode: searchParams.get('roomCode')!,
+        username: roomInfo.members.find((m) => m.socketId === socket.id)?.username!,
+        socketId: socket.id ?? '',
+      })
+        .unwrap()
+        .then(async (value) => {
+          value.room.members
+            .filter((m) => m.socketId !== socket.id)
+            .forEach((m) => {
+              const newPeer = pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
+            })
+          if (mediaStream) {
+            await waitApi(3000)
+            peerInstanceList.current.forEach((p) =>
+              p.peer.call(p.socketId + socket.id, mediaStream)
+            )
+          }
+          socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+            roomCode: value.room.code,
+            socketId: socket.id,
+          })
+        })
+    })
     if (reason === 'io server disconnect' || reason === 'transport close') {
       socket?.connect()
     } else {
