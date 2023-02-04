@@ -88,8 +88,18 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
+        {/* <Button
+          type={isPin ? 'primary' : 'default'}
+          onClick={() => {
+            console.log(stream?.getVideoTracks())
+          }}
+          icon={<Icon.LockFilled />}
+          size="small"
+        ></Button> */}
       </Space>
-      {isTurnOnCamera === false ? (
+      {stream === undefined ||
+      stream.getVideoTracks()?.[0].muted ||
+      stream.getVideoTracks()?.[0].readyState === 'ended' ? (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
             className={styles.image}

@@ -135,7 +135,34 @@ export function RoomPage() {
           }
         })
         screenStreamRef.current = screenMedia
-        await waitApi(1000)
+        screenSocketRef.current?.on('connect', () => {
+          joinRoom({
+            roomCode: searchParams.get('roomCode')!,
+            username:
+              roomInfo.members.find((m) => m.socketId === socket.id)?.username + '(Share)',
+            socketId: screenSocketRef.current?.id ?? '',
+          })
+            .unwrap()
+            .then(async (value) => {
+              value.room.members
+                .filter((m) => m.socketId !== screenSocketRef.current?.id)
+                .forEach((m) => {
+                  const newPeer = pushNewPeer(
+                    screenPeerInstanceList.current,
+                    screenSocketRef.current!.id,
+                    m.socketId
+                  )
+                })
+              await waitApi(3000)
+              screenPeerInstanceList.current.forEach((p) =>
+                p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
+              )
+              screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+                roomCode: value.room.code,
+                socketId: screenSocketRef.current.id,
+              })
+            })
+        })
         joinRoom({
           roomCode: searchParams.get('roomCode')!,
           username: roomInfo.members.find((m) => m.socketId === socket.id)?.username + '(Share)',
@@ -174,6 +201,14 @@ export function RoomPage() {
   const leaveCall = () => {
     navigate(rc(RouteKey.JoinRoom).path)
     socket?.disconnect()
+    screenSocketRef.current?.disconnect()
+  }
+  const shareRoom = () => {
+    navigator.clipboard.writeText(window.location.href)
+    messageApi.success({
+      content: 'Copy link to room successfully',
+      icon: <Icon.CheckCircleOutlined />,
+    })
   }
   // peer event handler
   const handleNewUserJoined = async (user: User) => {
@@ -217,7 +252,7 @@ export function RoomPage() {
   }
   const handleDisconnect = (reason: any) => {
     console.log(reason)
-    if (reason === 'io server disconnect') {
+    if (reason === 'io server disconnect' || reason === 'transport close') {
       socket?.connect()
     } else {
       leaveCall()
@@ -280,8 +315,10 @@ export function RoomPage() {
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   return (
     <Spin spinning={isLoadingJoinRoom}>
-      <Layout className={styles.room} 
-       style = {{ backgroundImage: `url("${getResourceUrl(PAGE_INFO.BACKGROUND)}") `   }} >
+      <Layout
+        className={styles.room}
+        style={{ backgroundImage: `url("${getResourceUrl(PAGE_INFO.BACKGROUND)}") ` }}
+      >
         {messageContextHolder}
         {!isInLobby ? (
           <>
@@ -319,6 +356,11 @@ export function RoomPage() {
                 ></Button>
                 <Button onClick={info} icon={<Icon.AlertOutlined />} size="large"></Button>
                 <Button
+                  onClick={shareRoom}
+                  icon={<Icon.ShareAltOutlined />}
+                  size="large"
+                ></Button>
+                <Button
                   onClick={leaveCall}
                   icon={<Icon.LogoutOutlined />}
                   danger
@@ -327,7 +369,6 @@ export function RoomPage() {
                 ></Button>
               </Space>
               <UserGrid<User>
-                
                 pinUser={pinUser}
                 users={roomInfo.members}
                 renderItems={(item, idx) => (
@@ -350,14 +391,15 @@ export function RoomPage() {
                         : streamList.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
-                    isTurnOnCamera = {
+                    isTurnOnCamera={
                       item.socketId === socket?.id
-                      ? isOpenCamera: 
-                      item.socketId === screenSocketRef.current?.id
                         ? isOpenCamera
-                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream !== undefined
+                        : item.socketId === screenSocketRef.current?.id
+                        ? isOpenCamera
+                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream !==
+                          undefined
                     }
-                    isYou = {item.socketId === socket?.id ? true: false}
+                    isYou={item.socketId === socket?.id ? true : false}
                   />
                 )}
               />
