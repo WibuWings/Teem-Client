@@ -34,13 +34,13 @@ export function UserGrid<Type>({
             gap: '20px',
           }}
         >
-          <div style={{ height: '80%', backgroundColor: 'transparent' }}>
+          <div style={{ height: '70%', backgroundColor: 'transparent' }}>
             {renderItems(pinUser, 0)}
           </div>
           <div
             style={{
-              height: '20%',
-              gap: '4px',
+              height: '30%',
+              gap: '10px',
               display: 'grid',
               gridTemplateColumns: `repeat(${MAX_USER_COLUMN + 1},1fr)`,
               gridTemplateRows: `repeat(1, 1fr)`,

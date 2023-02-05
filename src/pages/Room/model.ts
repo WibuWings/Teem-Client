@@ -10,9 +10,14 @@ export type User = {
   socketId: string
 }
 
+export enum MessageType {
+  Text = 'text',
+  File = 'file',
+}
 export type Message = {
   sender: User
   content: string
+  typeMessage: MessageType
 }
 
 export type Room = {

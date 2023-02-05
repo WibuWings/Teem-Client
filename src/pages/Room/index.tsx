@@ -38,6 +38,7 @@ export function RoomPage() {
   const dispatch = useAppDispatch()
   // socket & peer
   const { socket } = useSocketContext()
+
   const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
   // screen
   const screenStreamRef = useRef<MediaStream | undefined>()
@@ -57,6 +58,7 @@ export function RoomPage() {
   const [trigger] = useLazyGetRoomQuery()
   // state
   const roomInfo = useAppSelector((state) => state.room)
+  const [self, setSeft] = useState<User | undefined>(undefined)
   const [isInLobby, setIsInLobby] = useState(true)
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
   const [isCollapsedParticipant, setIsCollapsedParticipant] = useState(true)
@@ -64,7 +66,13 @@ export function RoomPage() {
   const [isOpenCamera, setIsOpenCamera] = useState(false)
   const [isShareScreen, setIsShareScreen] = useState(false)
   const [pinUser, setPinUser] = useState<User | undefined>()
-
+  useEffect(() => {
+    if (roomInfo) {
+      if (!roomInfo.members.find((m) => m.socketId === pinUser?.socketId)) {
+        setPinUser(undefined)
+      }
+    }
+  }, [roomInfo])
   const pushNewPeer = (
     peerElements: PeerElement[],
     selfSocketId: string,
@@ -168,7 +176,7 @@ export function RoomPage() {
                   m.socketId
                 )
               })
-            await waitApi(3000)
+            await waitApi(2000)
             screenPeerInstanceList.current.forEach((p) =>
               p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
             )
@@ -221,12 +229,12 @@ export function RoomPage() {
       const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
 
       if (mediaStream) {
-        await waitApi(3000)
+        await waitApi(2000)
         console.log('calling')
         newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
       }
       if (screenStreamRef.current) {
-        await waitApi(3000)
+        await waitApi(2000)
         console.log('calling')
         newPeerElement.peer.call(user.socketId + socket.id, screenStreamRef.current)
       }
@@ -243,12 +251,40 @@ export function RoomPage() {
       trigger(roomInfo.code, false)
     }
   }
-  const handleDisconnect = (reason: any) => {
-    alert('Disconnect')
+  const handleDisconnect = async (reason: any) => {
+    // alert('Disconnect')
     console.log(reason)
-
+    screenSocketRef.current?.disconnect()
+    screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
     if (reason === 'io server disconnect' || reason === 'transport close') {
       socket?.connect()
+      socket.on('connect', () => {
+        joinRoom({
+          roomCode: searchParams.get('roomCode')!,
+          username: self?.username ?? '',
+          socketId: socket?.id ?? '',
+        })
+          .unwrap()
+          .then(async (value) => {
+            peerInstanceList.current = []
+            setSeft(value.room.members.find((m) => m.socketId === socket.id))
+            value.room.members
+              .filter((m) => m.socketId !== socket.id)
+              .forEach((m) => {
+                const newPeer = pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
+              })
+            if (mediaStream) {
+              await waitApi(2000)
+              peerInstanceList.current.forEach((p) =>
+                p.peer.call(p.socketId + socket.id, mediaStream)
+              )
+            }
+            socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+              roomCode: value.room.code,
+              socketId: socket.id,
+            })
+          })
+      })
     } else {
       leaveCall()
     }
@@ -442,6 +478,7 @@ export function RoomPage() {
                 })
                   .unwrap()
                   .then(async (value) => {
+                    setSeft(value.room.members.find((m) => m.socketId === socket.id))
                     value.room.members
                       .filter((m) => m.socketId !== socket.id)
                       .forEach((m) => {
@@ -452,7 +489,7 @@ export function RoomPage() {
                         )
                       })
                     if (mediaStream) {
-                      await waitApi(3000)
+                      await waitApi(2000)
                       peerInstanceList.current.forEach((p) =>
                         p.peer.call(p.socketId + socket.id, mediaStream)
                       )

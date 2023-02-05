@@ -21,8 +21,17 @@ export const roomApi = apiSlice.injectEndpoints({
         }
       },
     }),
+    uploadFile: builder.mutation<{ data: {fileName: string, url: string}; message: string }, FormData>({
+      query: (formData) => {
+        return {
+          url: `/upload`,
+          method: HTTP_METHOD.POST,
+          data: formData
+        }
+      },
+    }),
   }),
   overrideExisting: false,
 })
 
-export const { useJoinRoomMutation, useLazyGetRoomQuery } = roomApi
+export const { useJoinRoomMutation, useLazyGetRoomQuery, useUploadFileMutation } = roomApi

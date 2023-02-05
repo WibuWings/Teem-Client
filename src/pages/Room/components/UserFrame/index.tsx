@@ -76,8 +76,8 @@ export function UserFrame<Type>({
           position: 'absolute',
           visibility: isOpenCam ? 'visible' : 'hidden',
           zIndex: 1000,
-          marginTop: '20px',
-          marginLeft: '20px',
+          top: '20px',
+          left: '20px',
         }}
       >
         <Button
@@ -88,14 +88,14 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
-        <Button
+        {/* <Button
           type={isPin ? 'primary' : 'default'}
           onClick={() => {
             console.log(stream?.getTracks())
           }}
           icon={<Icon.LockFilled />}
           size="small"
-        ></Button>
+        ></Button> */}
       </Space>
       {stream === undefined ||
       stream?.getVideoTracks()?.[0]?.muted ||
@@ -126,6 +126,7 @@ export function UserFrame<Type>({
               bottom: '0%',
               marginBottom: '24px',
               marginLeft: '24px',
+              zIndex: 10,
             }}
           >
             {isYou ? 'You' : (user as User).username}
@@ -139,6 +140,9 @@ export function UserFrame<Type>({
             muted={muted}
             playsInline
             style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
               height: '100%',
               width: '100%',
               objectFit: 'contain',
@@ -159,7 +163,7 @@ export function UserFrame<Type>({
               marginLeft: '24px',
             }}
           >
-            {(user as User).username}
+            {isYou ? 'You' : (user as User).username}
           </h3>
           {/* {stream?.getAudioTracks()?.[0]?.readyState === 'live' && (
             <Icon.AudioOutlined
@@ -181,17 +185,16 @@ export function UserFrame<Type>({
 export function OverflowUser({ numberOverflow }: { numberOverflow: number }) {
   return (
     <div className={styles['user-frame']}>
-      <h3
-        style={{
-          color: 'white',
-          position: 'absolute',
-          bottom: '50%',
-          marginBottom: '24px',
-          marginLeft: '50px',
-        }}
-      >
-        + {numberOverflow} participants
-      </h3>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <h3
+          style={{
+            color: 'white',
+            textAlign: 'center',
+          }}
+        >
+          + {numberOverflow} participants
+        </h3>
+      </div>
     </div>
   )
 }
