@@ -27,37 +27,41 @@ export function JoinRoom() {
       })
       .catch((e) => console.error(e))
   return (
-    <div className={styles['form-wrapper'] }
-     style = {{ backgroundImage: `url("${getResourceUrl(PAGE_INFO.BACKGROUND)}") `   }}  >
-     
-      <Card 
-        className={styles.card} 
-        style ={{backgroundColor: 'transparent', 
-        border: '1px solid transparent', 
-      }}>  
-
-         <img 
+    <div
+      className={styles['form-wrapper']}
+      style={{ backgroundImage: `url("${getResourceUrl(PAGE_INFO.BACKGROUND)}") ` }}
+    >
+      <Card
+        className={styles.card}
+        style={{
+          backgroundColor: 'transparent',
+          border: '1px solid transparent',
+        }}
+      >
+        <img
           className={styles.image}
           src={getResourceUrl(PAGE_INFO.JOIN_ROOM)}
           alt="some-image"
-    
-          />
-       
+        />
+
         <div>
-          <h1  style={{
-            color: '#FFFFFF' , 
-            textAlign: "center" }}>
-              Welcome to Teem2ting, let's create a meeting and discover us ...
-            </h1>
+          <h1
+            style={{
+              color: '#FFFFFF',
+              textAlign: 'center',
+            }}
+          >
+            Welcome to Teem2ting, let's create a meeting and discover us ...
+          </h1>
         </div>
         <div>
-          <h3 style={{color: '#FFFFFF'}}>Create or join room with code</h3>
+          <h3 style={{ color: '#FFFFFF' }}>Create or join room with code</h3>
         </div>
 
-        <Form layout="inline" form={form} >
+        <Form layout="inline" form={form}>
           <Form.Item
             name="roomCode"
-            style={{ width: '100%',fontWeight:500 }}
+            style={{ width: '100%', fontWeight: 500 }}
             rules={[
               {
                 required: true,
@@ -68,7 +72,6 @@ export function JoinRoom() {
                 message: 'roomCode contains only characters a-z, - , and digits',
               },
             ]}
-            
           >
             <Input.Search
               enterButton={<Button type="primary">JOIN ROOM</Button>}
@@ -79,9 +82,6 @@ export function JoinRoom() {
           </Form.Item>
         </Form>
       </Card>
-
     </div>
-  
-
   )
 }

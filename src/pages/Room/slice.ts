@@ -30,6 +30,11 @@ export const roomSlice = createSlice({
       const { message, room } = payload
       return room
     })
+    builder.addMatcher(roomApi.endpoints.getRoom.matchFulfilled, (state, { payload }) => {
+      const { message, room } = payload
+      console.log(room)
+      return room
+    })
   },
 })
 

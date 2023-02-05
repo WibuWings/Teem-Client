@@ -91,13 +91,15 @@ export function UserFrame<Type>({
         <Button
           type={isPin ? 'primary' : 'default'}
           onClick={() => {
-            console.log(stream?.getVideoTracks())
+            console.log(stream?.getTracks())
           }}
           icon={<Icon.LockFilled />}
           size="small"
         ></Button>
       </Space>
-      {stream === undefined ? (
+      {stream === undefined ||
+      stream?.getVideoTracks()?.[0]?.muted ||
+      stream?.getVideoTracks()?.[0]?.readyState === 'ended' ? (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
             className={styles.image}
@@ -159,6 +161,17 @@ export function UserFrame<Type>({
           >
             {(user as User).username}
           </h3>
+          {/* {stream?.getAudioTracks()?.[0]?.readyState === 'live' && (
+            <Icon.AudioOutlined
+              style={{
+                color: 'white',
+                position: 'absolute',
+                bottom: '0%',
+                marginBottom: '24px',
+                right: '24px',
+              }}
+            ></Icon.AudioOutlined>
+          )} */}
         </div>
       )}
     </div>

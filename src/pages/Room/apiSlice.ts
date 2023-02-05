@@ -13,8 +13,16 @@ export const roomApi = apiSlice.injectEndpoints({
         }
       },
     }),
+    getRoom: builder.query<{ room: Room; message: string }, string>({
+      query: (roomCode) => {
+        return {
+          url: `/room/${roomCode}`,
+          method: HTTP_METHOD.GET,
+        }
+      },
+    }),
   }),
   overrideExisting: false,
 })
 
-export const { useJoinRoomMutation } = roomApi
+export const { useJoinRoomMutation, useLazyGetRoomQuery } = roomApi

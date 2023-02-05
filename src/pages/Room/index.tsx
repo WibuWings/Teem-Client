@@ -14,7 +14,7 @@ import { Overlay } from './components/Overlay'
 import { useAppDispatch, useAppSelector, usePeerContext, useSocketContext } from '@/hooks'
 import { leaveRoom, pushNewUserToRoom, removeUserFromRoom } from './slice'
 import { SOCKET_EVENT } from '@/providers/Socket'
-import { useJoinRoomMutation } from './apiSlice'
+import { roomApi, useJoinRoomMutation, useLazyGetRoomQuery } from './apiSlice'
 import { JoinRoomDTO, User, Room } from './model'
 import Peer from 'peerjs'
 import { waitApi } from '@/utils/async'
@@ -23,6 +23,7 @@ import { API_URL } from '@/config'
 import { trackForMutations } from '@reduxjs/toolkit/dist/immutableStateInvariantMiddleware'
 import { getResourceUrl } from '@/transforms/url'
 import { PAGE_INFO } from '@/constants/page'
+import { Participant } from './components/Participant'
 
 type PeerElement = {
   peer: Peer
@@ -53,10 +54,12 @@ export function RoomPage() {
 
   // room API
   const [joinRoom, { isLoading: isLoadingJoinRoom, error: errorJoinRoom }] = useJoinRoomMutation()
+  const [trigger] = useLazyGetRoomQuery()
   // state
   const roomInfo = useAppSelector((state) => state.room)
   const [isInLobby, setIsInLobby] = useState(true)
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
+  const [isCollapsedParticipant, setIsCollapsedParticipant] = useState(true)
   const [isOpenMic, setIsOpenMic] = useState(false)
   const [isOpenCamera, setIsOpenCamera] = useState(false)
   const [isShareScreen, setIsShareScreen] = useState(false)
@@ -105,7 +108,20 @@ export function RoomPage() {
   }
   // controll handler
   const toggleCollapsMessage = () => {
-    setIsCollapsedMessage((cur) => !cur)
+    if (isCollapsedMessage) {
+      setIsCollapsedParticipant(true)
+      setIsCollapsedMessage(false)
+    } else {
+      setIsCollapsedMessage(true)
+    }
+  }
+  const toggleCollapsParticipant = () => {
+    if (isCollapsedParticipant) {
+      setIsCollapsedMessage(true)
+      setIsCollapsedParticipant(false)
+    } else {
+      setIsCollapsedParticipant(true)
+    }
   }
   const toggleOpenMic = () => {
     setIsOpenMic((cur) => !cur)
@@ -163,6 +179,7 @@ export function RoomPage() {
           })
       } catch (err: any) {
         console.log(err.name + ': ' + err.message)
+        setIsShareScreen(false)
       }
     } else {
       setIsShareScreen(false)
@@ -171,7 +188,7 @@ export function RoomPage() {
       screenSocketRef.current?.disconnect()
     }
   }
-  const leaveCall = () => {
+  const leaveCall = async () => {
     screenSocketRef.current?.disconnect()
     screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
     mediaStream?.getTracks().forEach((track) => track.stop())
@@ -223,38 +240,13 @@ export function RoomPage() {
           message: `${user.username} left room`,
         })
       }
-      dispatch(removeUserFromRoom(user.socketId))
+      trigger(roomInfo.code, false)
     }
   }
   const handleDisconnect = (reason: any) => {
     alert('Disconnect')
     console.log(reason)
-    socket?.on('connect', () => {
-      console.log('attempt to reconnect')
-      joinRoom({
-        roomCode: searchParams.get('roomCode')!,
-        username: roomInfo.members.find((m) => m.socketId === socket.id)?.username!,
-        socketId: socket.id ?? '',
-      })
-        .unwrap()
-        .then(async (value) => {
-          value.room.members
-            .filter((m) => m.socketId !== socket.id)
-            .forEach((m) => {
-              const newPeer = pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
-            })
-          if (mediaStream) {
-            await waitApi(3000)
-            peerInstanceList.current.forEach((p) =>
-              p.peer.call(p.socketId + socket.id, mediaStream)
-            )
-          }
-          socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-            roomCode: value.room.code,
-            socketId: socket.id,
-          })
-        })
-    })
+
     if (reason === 'io server disconnect' || reason === 'transport close') {
       socket?.connect()
     } else {
@@ -299,15 +291,22 @@ export function RoomPage() {
     if (isOpenCamera || isOpenMic) {
       getMyMediaStream(isOpenCamera, isOpenMic)
     }
-    if (!isOpenMic) {
-      mediaStream?.getAudioTracks()?.[0]?.stop()
+    if (!isOpenMic && mediaStream?.getAudioTracks()) {
+      mediaStream.getAudioTracks().forEach((track) => {
+        track.enabled = false
+        track.stop()
+      })
     }
-    if (!isOpenCamera) {
-      mediaStream?.getVideoTracks()?.[0]?.stop()
+    if (!isOpenCamera && mediaStream?.getVideoTracks()) {
+      mediaStream.getVideoTracks().forEach((track) => {
+        track.enabled = false
+        track.stop()
+      })
     }
   }, [isOpenCamera, isOpenMic])
 
   useEffect(() => {
+    console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
       peerInstanceList.current.forEach((e) => {
         e.peer.call(e.socketId + socket.id, mediaStream)
@@ -352,8 +351,8 @@ export function RoomPage() {
                   size="large"
                 ></Button>
                 <Button
-                  type={isCollapsedMessage ? 'default' : 'primary'}
-                  onClick={toggleCollapsMessage}
+                  type={isCollapsedParticipant ? 'default' : 'primary'}
+                  onClick={toggleCollapsParticipant}
                   icon={<Icon.TeamOutlined />}
                   size="large"
                 ></Button>
@@ -415,6 +414,18 @@ export function RoomPage() {
               collapsedWidth={0}
             >
               <IncallMessage isCollapsed={isCollapsedMessage} onCollapse={toggleCollapsMessage} />
+            </Layout.Sider>
+            <Layout.Sider
+              collapsible={true}
+              collapsed={isCollapsedParticipant}
+              trigger={null}
+              width={400}
+              collapsedWidth={0}
+            >
+              <Participant
+                isCollapsed={isCollapsedParticipant}
+                onCollapse={toggleCollapsParticipant}
+              />
             </Layout.Sider>
           </>
         ) : (
