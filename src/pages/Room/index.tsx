@@ -1,4 +1,15 @@
-import { Button, Card, Drawer, Input, Layout, message, notification, Space, Spin } from 'antd'
+import {
+  Button,
+  Card,
+  Drawer,
+  Input,
+  Layout,
+  message,
+  Modal,
+  notification,
+  Space,
+  Spin,
+} from 'antd'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as Icon from '@ant-design/icons'
@@ -254,40 +265,47 @@ export function RoomPage() {
   const handleDisconnect = async (reason: any) => {
     // alert('Disconnect')
     console.log(reason)
-    notification.error({
-      message: `Socket is disconnected by ${reason}`,
-    })
     screenSocketRef.current?.disconnect()
     screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
     if (reason === 'io server disconnect' || reason === 'transport close') {
       socket?.connect()
-      socket.on('connect', () => {
-        joinRoom({
-          roomCode: searchParams.get('roomCode')!,
-          username: self?.username ?? '',
-          socketId: socket?.id ?? '',
-        })
-          .unwrap()
-          .then(async (value) => {
-            peerInstanceList.current = []
-            setSeft(value.room.members.find((m) => m.socketId === socket.id))
-            value.room.members
-              .filter((m) => m.socketId !== socket.id)
-              .forEach((m) => {
-                const newPeer = pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
-              })
-            if (mediaStream) {
-              await waitApi(2000)
-              peerInstanceList.current.forEach((p) =>
-                p.peer.call(p.socketId + socket.id, mediaStream)
-              )
-            }
-            socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-              roomCode: value.room.code,
-              socketId: socket.id,
-            })
+      modal.confirm({
+        title: `Socket is disconnected by ${reason}`,
+        content: 'Do you want to reconnect',
+        okText: 'OK',
+        onOk: () => {
+          joinRoom({
+            roomCode: searchParams.get('roomCode')!,
+            username: self?.username ?? '',
+            socketId: socket?.id ?? '',
           })
+            .unwrap()
+            .then(async (value) => {
+              peerInstanceList.current = []
+              setSeft(value.room.members.find((m) => m.socketId === socket.id))
+              value.room.members
+                .filter((m) => m.socketId !== socket.id)
+                .forEach((m) => {
+                  const newPeer = pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
+                })
+              if (mediaStream) {
+                await waitApi(2000)
+                peerInstanceList.current.forEach((p) =>
+                  p.peer.call(p.socketId + socket.id, mediaStream)
+                )
+              }
+              socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+                roomCode: value.room.code,
+                socketId: socket.id,
+              })
+            })
+        },
+        cancelText: 'Cancel',
+        onCancel: () => {
+          leaveCall()
+        },
       })
+      socket.on('connect', () => {})
     } else {
       leaveCall()
     }
@@ -354,6 +372,7 @@ export function RoomPage() {
   }, [mediaStream])
 
   if (!searchParams.get('roomCode')) return <PrepairRoom />
+  const [modal, modalContextHolder] = Modal.useModal()
   return (
     <Spin spinning={isLoadingJoinRoom}>
       <Layout
@@ -391,7 +410,9 @@ export function RoomPage() {
                 ></Button>
                 <Button
                   type={isCollapsedParticipant ? 'default' : 'primary'}
-                  onClick={toggleCollapsParticipant}
+                  onClick={() => {
+                    toggleCollapsParticipant()
+                  }}
                   icon={<Icon.TeamOutlined />}
                   size="large"
                 ></Button>
@@ -444,6 +465,7 @@ export function RoomPage() {
                   />
                 )}
               />
+              {modalContextHolder}
             </Layout.Content>
             <Layout.Sider
               collapsible={true}
