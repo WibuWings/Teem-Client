@@ -254,6 +254,9 @@ export function RoomPage() {
   const handleDisconnect = async (reason: any) => {
     // alert('Disconnect')
     console.log(reason)
+    notification.error({
+      message: `Socket is disconnected by ${reason}`,
+    })
     screenSocketRef.current?.disconnect()
     screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
     if (reason === 'io server disconnect' || reason === 'transport close') {
