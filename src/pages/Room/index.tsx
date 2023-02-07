@@ -90,13 +90,28 @@ export function RoomPage() {
     ortherSocketId: string
   ) => {
     const peer = new Peer(selfSocketId + ortherSocketId)
+    const conn = peer.connect(ortherSocketId);
+    conn.on("open", () => {
+      conn.send("hi!");
+    });
     peer.on('open', (id) => {
       console.log(`peer ${id} opened`)
     })
+
     const newPeerElement: PeerElement = {
       peer,
       socketId: ortherSocketId,
     }
+    
+    peer.on("connection", (conn) => {
+      conn.on("data", (data) => {
+        console.log(data);
+      });
+      conn.on("open", () => {
+        conn.send("hello!");
+      });
+    });
+
     newPeerElement.peer.on('call', (call) => {
       console.log('on incoming call')
       call.answer(undefined) // Answer the call with an A/V stream.

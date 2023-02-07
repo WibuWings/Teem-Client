@@ -88,14 +88,6 @@ export function UserFrame<Type>({
           icon={<Icon.PushpinOutlined />}
           size="small"
         ></Button>
-        {/* <Button
-          type={isPin ? 'primary' : 'default'}
-          onClick={() => {
-            console.log(stream?.getTracks())
-          }}
-          icon={<Icon.LockFilled />}
-          size="small"
-        ></Button> */}
       </Space>
       {stream === undefined ||
       stream?.getVideoTracks()?.[0]?.muted ||
