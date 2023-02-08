@@ -26,20 +26,12 @@ export function UserFrame<Type>({
   onClickPin: (user: Type) => void
 }): ReactElement {
   const params = useParams()
-  const navigate = useNavigate()
+
   // auto resize video
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [isOpenMic, setIsOpenMic] = useState(false)
 
-  const [isOpenCam, setIsOpenCam] = useState(false)
+  const [isShowPinButton, setIsShowPinButton] = useState(false)
 
-  // controll handler
-  const toggleOpenMic = () => {
-    setIsOpenMic((cur) => !cur)
-  }
-  const leaveCall = () => {
-    navigate(rc(RouteKey.JoinRoom).path)
-  }
 
   useEffect(() => {
     const video = videoRef.current
@@ -48,10 +40,16 @@ export function UserFrame<Type>({
         video.srcObject = null
       } else {
         video.srcObject = stream
+        video.autoplay = true
         video.onloadedmetadata = function (e) {
           video.play()
         }
       }
+    }
+    else 
+    {
+      console.log(' video ' + (user as User).username + ' undefined')
+
     }
   }, [videoRef.current, stream])
 
@@ -59,10 +57,10 @@ export function UserFrame<Type>({
     <div
       className={styles['user-frame']}
       onMouseOver={(e) => {
-        setIsOpenCam(true)
+        setIsShowPinButton(true)
       }}
       onMouseOut={(e) => {
-        setIsOpenCam(false)
+        setIsShowPinButton(false)
       }}
       style={{
         alignItems: 'center',
@@ -74,7 +72,7 @@ export function UserFrame<Type>({
       <Space
         style={{
           position: 'absolute',
-          visibility: isOpenCam ? 'visible' : 'hidden',
+          visibility: isShowPinButton ? 'visible' : 'hidden',
           zIndex: 1000,
           top: '20px',
           left: '20px',
@@ -91,7 +89,7 @@ export function UserFrame<Type>({
       </Space>
       {stream === undefined ||
       stream?.getVideoTracks()?.[0]?.muted ||
-      stream?.getVideoTracks()?.[0]?.readyState === 'ended' ? (
+      stream?.getVideoTracks()?.[0]?.readyState === 'ended' ?(
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
             className={styles.image}

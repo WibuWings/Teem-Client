@@ -93,6 +93,7 @@ export function RoomPage() {
     const conn = peer.connect(ortherSocketId);
     conn.on("open", () => {
       conn.send("hi!");
+
     });
     peer.on('open', (id) => {
       console.log(`peer ${id} opened`)
@@ -103,18 +104,17 @@ export function RoomPage() {
       socketId: ortherSocketId,
     }
     
-    peer.on("connection", (conn) => {
+    newPeerElement.peer.on("connection", (conn) => {
       conn.on("data", (data) => {
         console.log(data);
       });
       conn.on("open", () => {
-        conn.send("hello!");
       });
     });
 
     newPeerElement.peer.on('call', (call) => {
       console.log('on incoming call')
-      call.answer(undefined) // Answer the call with an A/V stream.
+      call.answer(mediaStream) // Answer the call with an A/V stream.
       call.on('stream', (remoteStream) => {
         // Show stream in some <video> element.
         newPeerElement.remoteStream = remoteStream
@@ -538,8 +538,12 @@ export function RoomPage() {
                       roomCode: value.room.code,
                       socketId: socket.id,
                     })
-                  })
-                setIsInLobby(false)
+                  }).then(() =>      
+                    setIsInLobby(false)
+                  ).catch(
+                    e => console.log(e)
+                  )
+
               }}
             />
           </Layout.Content>
