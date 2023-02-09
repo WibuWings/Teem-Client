@@ -121,7 +121,7 @@ export function RoomPage() {
                   })
               )
 			};
-      if (mediaStream && mediaStream !== undefined) {
+      if (mediaStream) {
 				console.log('localstream add');
 				mediaStream.getTracks().forEach((track) => {
 					pc.addTrack(track, mediaStream);
@@ -393,13 +393,11 @@ export function RoomPage() {
 
     socket?.on('disconnect', handleDisconnect)
     return () => {
-			streamList.forEach((user) => {
-				if (!peerInstanceList.current[user.socketId]) return;
-				peerInstanceList.current[user.socketId].close();
-				delete peerInstanceList.current[user.socketId];
-			});
       socket?.off(SOCKET_EVENT.ON.USER_CONNECTED)
       socket?.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
+      socket?.off('getOffer')
+      socket?.off('getAnswer')
+      socket?.off('getCandidate')
       socket?.off('disconnect')
     }
   }, [socket,handleGetOffer, handleUserConnect, handleUserDisconnected, handleDisconnect])
@@ -425,7 +423,10 @@ export function RoomPage() {
   useEffect(() => {
     console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
-      roomInfo.members.forEach(
+    
+      roomInfo.members
+      .filter((m) => m.socketId !== socket.id )
+      .forEach(
         async (user) => {
           const pc = peerInstanceList.current[user.socketId];
           if(mediaStream !== undefined)
