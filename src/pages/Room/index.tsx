@@ -1,8 +1,5 @@
 import {
   Button,
-  Card,
-  Drawer,
-  Input,
   Layout,
   message,
   Modal,
@@ -27,7 +24,6 @@ import { leaveRoom, pushNewUserToRoom, removeUserFromRoom } from './slice'
 import { SOCKET_EVENT } from '@/providers/Socket'
 import { roomApi, useJoinRoomMutation, useLazyGetRoomQuery } from './apiSlice'
 import { JoinRoomDTO, User, Room } from './model'
-import Peer from 'peerjs'
 import { waitApi } from '@/utils/async'
 import { io, Socket } from 'socket.io-client'
 import { API_URL } from '@/config'
@@ -35,12 +31,28 @@ import { trackForMutations } from '@reduxjs/toolkit/dist/immutableStateInvariant
 import { getResourceUrl } from '@/transforms/url'
 import { PAGE_INFO } from '@/constants/page'
 import { Participant } from './components/Participant'
+import { PeerConnectOption } from 'peerjs'
 
-type PeerElement = {
-  peer: Peer
+
+const pc_config = {
+	iceServers: [
+		// {
+		//   urls: 'stun:[STUN_IP]:[PORT]',
+		//   'credentials': '[YOR CREDENTIALS]',
+		//   'username': '[USERNAME]'
+		// },
+		{
+			urls: 'stun:stun.l.google.com:19302',
+		},
+	],
+};
+
+type WebRTCUser = {
   socketId: string
+  username: string
   remoteStream?: MediaStream
 }
+
 
 export function RoomPage() {
   // react hook
@@ -48,28 +60,23 @@ export function RoomPage() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   // socket & peer
-  const { socket } = useSocketContext()
+  const { socket } = useSocketContext() //socket of current user
 
-  const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()
-  // screen
-  const screenStreamRef = useRef<MediaStream | undefined>()
-  const screenSocketRef = useRef<Socket<any, any> | undefined>()
-  const screenPeerInstanceList = useRef<PeerElement[]>([])
-  //
-  const peerInstanceList = useRef<PeerElement[]>([])
-  const [streamList, setStreamList] = useState<
-    {
-      socketId: string
-      remoteStream?: MediaStream
-    }[]
-  >([])
+  const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()  //local video
+
+  const screenStreamRef = useRef<MediaStream | undefined>() //local stream
+
+  const screenSocketRef = useRef<Socket<any, any> | undefined>() //local share screen socket
+
+  const peerInstanceList = useRef<{ [socketId: string]: RTCPeerConnection }>({}) // list peerConnection with orther members
+
+  const [streamList, setStreamList] = useState<WebRTCUser[]>([]) // list user in room
 
   // room API
   const [joinRoom, { isLoading: isLoadingJoinRoom, error: errorJoinRoom }] = useJoinRoomMutation()
   const [trigger] = useLazyGetRoomQuery()
   // state
   const roomInfo = useAppSelector((state) => state.room)
-  const [self, setSeft] = useState<User | undefined>(undefined)
   const [isInLobby, setIsInLobby] = useState(true)
   const [isCollapsedMessage, setIsCollapsedMessage] = useState(true)
   const [isCollapsedParticipant, setIsCollapsedParticipant] = useState(true)
@@ -84,52 +91,50 @@ export function RoomPage() {
       }
     }
   }, [roomInfo])
-  const pushNewPeer = (
-    peerElements: PeerElement[],
-    selfSocketId: string,
-    ortherSocketId: string
+  const createPeerConnection = (
+    ortherSocketId: string,
+    name: string
   ) => {
-    const peer = new Peer(selfSocketId + ortherSocketId)
-    const conn = peer.connect(ortherSocketId);
-    conn.on("open", () => {
-      conn.send("hi!");
-
-    });
-    peer.on('open', (id) => {
-      console.log(`peer ${id} opened`)
-    })
-
-    const newPeerElement: PeerElement = {
-      peer,
-      socketId: ortherSocketId,
+    try{
+      const pc = new RTCPeerConnection(pc_config)
+      pc.onicecandidate = (e) =>{
+        if (!(socket && e.candidate)) return;
+        console.log('onicecandidate');
+        socket.emit('candidate', {
+					candidate: e.candidate,
+					candidateSendID: socket.id,
+					candidateReceiveID: ortherSocketId,
+				});
+      }
+      pc.oniceconnectionstatechange = (e) => {
+				console.log(e);
+			};
+      pc.ontrack = (e) => {
+				console.log('ontrack success');
+        setStreamList( (oldList) =>
+                oldList
+                  .filter((p) => p.socketId !== ortherSocketId)
+                  .concat({
+                    socketId: ortherSocketId,
+                    username: name,
+                    remoteStream: e.streams[0],
+                  })
+              )
+			};
+      if (mediaStream && mediaStream !== undefined) {
+				console.log('localstream add');
+				mediaStream.getTracks().forEach((track) => {
+					pc.addTrack(track, mediaStream);
+				});
+			} else {
+				console.log('no local stream');
+			}
+			return pc;
     }
-    
-    newPeerElement.peer.on("connection", (conn) => {
-      conn.on("data", (data) => {
-        console.log(data);
-      });
-      conn.on("open", () => {
-      });
-    });
-
-    newPeerElement.peer.on('call', (call) => {
-      console.log('on incoming call')
-      call.answer(mediaStream) // Answer the call with an A/V stream.
-      call.on('stream', (remoteStream) => {
-        // Show stream in some <video> element.
-        newPeerElement.remoteStream = remoteStream
-        setStreamList(
-          peerElements
-            .filter((p) => p.remoteStream)
-            .map((p) => ({
-              socketId: p.socketId,
-              remoteStream: p.remoteStream,
-            }))
-        )
-      })
-    })
-    peerElements.push(newPeerElement)
-    return newPeerElement
+    catch (e) {
+			console.error(e);
+			return undefined;
+		}
   }
 
   // message notification context
@@ -196,20 +201,20 @@ export function RoomPage() {
             value.room.members
               .filter((m) => m.socketId !== screenSocketRef.current?.id)
               .forEach((m) => {
-                const newPeer = pushNewPeer(
-                  screenPeerInstanceList.current,
-                  screenSocketRef.current!.id,
-                  m.socketId
-                )
+                // const newPeer = pushNewPeer(
+                //   screenPeerInstanceList.current,
+                //   screenSocketRef.current!.id,
+                //   m.socketId
+                // )
               })
-            await waitApi(2000)
-            screenPeerInstanceList.current.forEach((p) =>
-              p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
-            )
-            screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-              roomCode: value.room.code,
-              socketId: screenSocketRef.current.id,
-            })
+            // await waitApi(2000)
+            // screenPeerInstanceList.current.forEach((p) =>
+            //   p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
+            // )
+            // screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+            //   roomCode: value.room.code,
+            //   socketId: screenSocketRef.current.id,
+            // })
           })
       } catch (err: any) {
         console.log(err.name + ': ' + err.message)
@@ -237,34 +242,60 @@ export function RoomPage() {
       icon: <Icon.CheckCircleOutlined />,
     })
   }
-  // peer event handler
-  const handleNewUserJoined = async (user: User) => {
-    if (user.socketId !== screenSocketRef.current?.id) {
-      if (user.username.includes('Share')) {
-        setIsShareScreen(false)
-        screenStreamRef.current?.getTracks().forEach((track) => track.stop())
-        screenSocketRef.current?.disconnect()
-      }
+  const handleUserConnect = async (user: User) => {
+    const pc = createPeerConnection(user.socketId, user.username);
+    if (!(pc && socket)) return;
+    peerInstanceList.current = { ...peerInstanceList.current, [user.socketId]: pc };		
+    try {
+      const localSdp = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+      console.log('create offer success');
+      await pc.setLocalDescription(new RTCSessionDescription(localSdp));
+      socket.emit('offer', {
+        sdp: localSdp,
+        offerSendID: socket.id,
+        offerSendEmail: '',
+        offerReceiveID: user.socketId,
+      });
       notification.info({
         message: user.username.includes('Share')
           ? `${user.username} shared screen`
           : `${user.username} joined room`,
       })
       dispatch(pushNewUserToRoom(user))
-
-      const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
-
-      if (mediaStream) {
-        await waitApi(2000)
-        console.log('calling')
-        newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
-      }
-      if (screenStreamRef.current) {
-        await waitApi(2000)
-        console.log('calling')
-        newPeerElement.peer.call(user.socketId + socket.id, screenStreamRef.current)
-      }
+    } catch (e) {
+      console.error(e);
     }
+  }
+  // peer event handler
+  const handleGetOffer = async (data: {
+    sdp: RTCSessionDescription;
+    offerSendID: string;
+    offerSendEmail: string;}
+    ) => {
+      const { sdp, offerSendID, offerSendEmail } = data;
+				console.log('get offer');
+				const pc = createPeerConnection(offerSendID, offerSendEmail);
+				if (!(pc&&socket)) return;
+				peerInstanceList.current = { ...peerInstanceList.current, [offerSendID]: pc };
+				try {
+					await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+					console.log('answer set remote description success');
+					const localSdp = await pc.createAnswer({
+						offerToReceiveVideo: true,
+						offerToReceiveAudio: true,
+					});
+					await pc.setLocalDescription(new RTCSessionDescription(localSdp));
+				  socket.emit('answer', {
+						sdp: localSdp,
+						answerSendID: socket.id,
+						answerReceiveID: offerSendID,
+					});
+				} catch (e) {
+					console.error(e);
+				}
   }
   // socket event
   const handleUserDisconnected = (user: User) => {
@@ -291,28 +322,16 @@ export function RoomPage() {
         onOk: () => {
           joinRoom({
             roomCode: searchParams.get('roomCode')!,
-            username: self?.username ?? '',
+            username : '',
             socketId: socket?.id ?? '',
           })
             .unwrap()
             .then(async (value) => {
-              peerInstanceList.current = []
-              setSeft(value.room.members.find((m) => m.socketId === socket.id))
               value.room.members
                 .filter((m) => m.socketId !== socket.id)
                 .forEach((m) => {
-                  const newPeer = pushNewPeer(peerInstanceList.current, socket.id, m.socketId)
+                  // const newPeer = createPeerConnection(peerInstanceList.current, socket.id, m.socketId)
                 })
-              if (mediaStream) {
-                await waitApi(2000)
-                peerInstanceList.current.forEach((p) =>
-                  p.peer.call(p.socketId + socket.id, mediaStream)
-                )
-              }
-              socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-                roomCode: value.room.code,
-                socketId: socket.id,
-              })
             })
         },
         cancelText: 'Cancel',
@@ -347,17 +366,43 @@ export function RoomPage() {
   // handle socket event
   useEffect(() => {
     // new user joined room
-    socket?.on(SOCKET_EVENT.ON.USER_CONNECTED, handleNewUserJoined)
+    socket?.on(SOCKET_EVENT.ON.USER_CONNECTED, handleUserConnect)
     // user left room
     socket?.on(SOCKET_EVENT.ON.USER_DISCONNECTED, handleUserDisconnected)
     // disconnect
+    socket?.on('getOffer', handleGetOffer)
+    socket?.on('getAnswer', (data: { sdp: RTCSessionDescription; answerSendID: string }) => {
+      const { sdp, answerSendID } = data;
+      console.log('get answer');
+      const pc: RTCPeerConnection = peerInstanceList.current[answerSendID];
+      if (!pc) return;
+      pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    },)
+
+    socket.on(
+			'getCandidate',
+			async (data: { candidate: RTCIceCandidateInit; candidateSendID: string }) => {
+				console.log('get candidate');
+				const pc: RTCPeerConnection = peerInstanceList.current[data.candidateSendID];
+				if (!pc) return;
+				await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).then( (e)=>
+          console.log('candidate add success')
+        )
+			},
+		);
+
     socket?.on('disconnect', handleDisconnect)
     return () => {
+			streamList.forEach((user) => {
+				if (!peerInstanceList.current[user.socketId]) return;
+				peerInstanceList.current[user.socketId].close();
+				delete peerInstanceList.current[user.socketId];
+			});
       socket?.off(SOCKET_EVENT.ON.USER_CONNECTED)
       socket?.off(SOCKET_EVENT.ON.USER_DISCONNECTED)
       socket?.off('disconnect')
     }
-  }, [socket, handleNewUserJoined, handleUserDisconnected, handleDisconnect])
+  }, [socket,handleGetOffer, handleUserConnect, handleUserDisconnected, handleDisconnect])
 
   useEffect(() => {
     if (isOpenCamera || isOpenMic) {
@@ -380,9 +425,17 @@ export function RoomPage() {
   useEffect(() => {
     console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
-      peerInstanceList.current.forEach((e) => {
-        e.peer.call(e.socketId + socket.id, mediaStream)
-      })
+      roomInfo.members.forEach(
+        async (user) => {
+          const pc = peerInstanceList.current[user.socketId];
+          if(mediaStream !== undefined)
+          {
+            mediaStream.getTracks().forEach((track) => {
+              pc.addTrack(track, mediaStream);
+            });
+          }
+        }
+      )
     }
   }, [mediaStream])
 
@@ -460,6 +513,7 @@ export function RoomPage() {
                         setPinUser(user)
                       }
                     }}
+                    
                     stream={
                       item.socketId === socket?.id
                         ? mediaStream
@@ -518,26 +572,10 @@ export function RoomPage() {
                 })
                   .unwrap()
                   .then(async (value) => {
-                    setSeft(value.room.members.find((m) => m.socketId === socket.id))
-                    value.room.members
-                      .filter((m) => m.socketId !== socket.id)
-                      .forEach((m) => {
-                        const newPeer = pushNewPeer(
-                          peerInstanceList.current,
-                          socket.id,
-                          m.socketId
-                        )
+                      socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+                        roomCode: value.room.code,
+                        socketId: socket.id,
                       })
-                    if (mediaStream) {
-                      await waitApi(2000)
-                      peerInstanceList.current.forEach((p) =>
-                        p.peer.call(p.socketId + socket.id, mediaStream)
-                      )
-                    }
-                    socket?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-                      roomCode: value.room.code,
-                      socketId: socket.id,
-                    })
                   }).then(() =>      
                     setIsInLobby(false)
                   ).catch(
