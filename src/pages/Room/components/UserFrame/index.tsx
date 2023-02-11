@@ -34,13 +34,14 @@ export function UserFrame<Type>({
 
 
   useEffect(() => {
-    const video = videoRef.current
+    const video = videoRef.current 
+
     if (video) {
-      if (!stream) {
+      if (!stream ) {
         video.srcObject = null
       } else {
+        stream.clone();
         video.srcObject = stream
-        video.autoplay = true
         video.onloadedmetadata = function (e) {
           video.play()
         }
@@ -49,8 +50,8 @@ export function UserFrame<Type>({
     else 
     {
       console.log(' video ' + (user as User).username + ' undefined')
-
     }
+
   }, [videoRef.current, stream])
 
   return (
@@ -88,6 +89,7 @@ export function UserFrame<Type>({
         ></Button>
       </Space>
       {stream === undefined ||
+      
       stream?.getVideoTracks()?.[0]?.muted ||
       stream?.getVideoTracks()?.[0]?.readyState === 'ended' ?(
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>

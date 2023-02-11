@@ -32,6 +32,7 @@ import { getResourceUrl } from '@/transforms/url'
 import { PAGE_INFO } from '@/constants/page'
 import { Participant } from './components/Participant'
 import { PeerConnectOption } from 'peerjs'
+import { send } from 'process'
 
 
 const pc_config = {
@@ -62,7 +63,7 @@ export function RoomPage() {
   // socket & peer
   const { socket } = useSocketContext() //socket of current user
 
-  const [mediaStream, setMediaStream] = useState<MediaStream | undefined>()  //local video
+  const [mediaStream, setMediaStream] = useState<MediaStream>()  //local video
 
   const screenStreamRef = useRef<MediaStream | undefined>() //local stream
 
@@ -91,10 +92,14 @@ export function RoomPage() {
       }
     }
   }, [roomInfo])
-  const createPeerConnection = (
+  const createPeerConnection = async (
     ortherSocketId: string,
     name: string
   ) => {
+    if(screenSocketRef && screenSocketRef.current?.id === ortherSocketId)
+    {
+      return;
+    }
     try{
       const pc = new RTCPeerConnection(pc_config)
       pc.onicecandidate = (e) =>{
@@ -109,6 +114,7 @@ export function RoomPage() {
       pc.oniceconnectionstatechange = (e) => {
 				console.log(e);
 			};
+      
       pc.ontrack = (e) => {
 				console.log('ontrack success');
         setStreamList( (oldList) =>
@@ -121,14 +127,34 @@ export function RoomPage() {
                   })
               )
 			};
-      if (mediaStream) {
-				console.log('localstream add');
-				mediaStream.getTracks().forEach((track) => {
-					pc.addTrack(track, mediaStream);
-				});
-			} else {
-				console.log('no local stream');
-			}
+
+      
+
+      await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      }).then((media) => {
+        if(!isOpenCamera)
+        {
+          media?.getVideoTracks().forEach((track) => {
+            track.enabled = false
+            track.stop()
+          })
+        }
+        if(!isOpenMic)
+        {
+          media?.getAudioTracks().forEach((track) => {
+            track.enabled = false
+            track.stop()
+          })
+        }
+        console.log('localstream add');
+        media?.getTracks().forEach((track) => {
+            pc.addTrack(track, media);
+        })
+        
+      })
+		
 			return pc;
     }
     catch (e) {
@@ -198,23 +224,10 @@ export function RoomPage() {
         })
           .unwrap()
           .then(async (value) => {
-            value.room.members
-              .filter((m) => m.socketId !== screenSocketRef.current?.id)
-              .forEach((m) => {
-                // const newPeer = pushNewPeer(
-                //   screenPeerInstanceList.current,
-                //   screenSocketRef.current!.id,
-                //   m.socketId
-                // )
-              })
-            // await waitApi(2000)
-            // screenPeerInstanceList.current.forEach((p) =>
-            //   p.peer.call(p.socketId + screenSocketRef.current!.id, screenStreamRef.current!)
-            // )
-            // screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-            //   roomCode: value.room.code,
-            //   socketId: screenSocketRef.current.id,
-            // })
+            screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
+              roomCode: value.room.code,
+              socketId: screenSocketRef.current.id,
+            })
           })
       } catch (err: any) {
         console.log(err.name + ': ' + err.message)
@@ -228,10 +241,13 @@ export function RoomPage() {
     }
   }
   const leaveCall = async () => {
-    screenSocketRef.current?.disconnect()
-    screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
-    mediaStream?.getTracks().forEach((track) => track.stop())
-    socket?.disconnect()
+    setIsShareScreen(false)
+    Promise.all([
+      screenStreamRef.current?.getTracks()?.forEach((track) => track.stop()),
+      screenSocketRef.current?.disconnect(),
+      mediaStream?.getTracks().forEach((track) => track.stop()),
+      socket?.disconnect(),
+    ])
     navigate(rc(RouteKey.JoinRoom).path)
     dispatch(leaveRoom())
   }
@@ -243,7 +259,7 @@ export function RoomPage() {
     })
   }
   const handleUserConnect = async (user: User) => {
-    const pc = createPeerConnection(user.socketId, user.username);
+    const pc = await createPeerConnection(user.socketId, user.username);
     if (!(pc && socket)) return;
     peerInstanceList.current = { ...peerInstanceList.current, [user.socketId]: pc };		
     try {
@@ -277,7 +293,7 @@ export function RoomPage() {
     ) => {
       const { sdp, offerSendID, offerSendEmail } = data;
 				console.log('get offer');
-				const pc = createPeerConnection(offerSendID, offerSendEmail);
+				const pc = await createPeerConnection(offerSendID, offerSendEmail);
 				if (!(pc&&socket)) return;
 				peerInstanceList.current = { ...peerInstanceList.current, [offerSendID]: pc };
 				try {
@@ -376,6 +392,7 @@ export function RoomPage() {
       console.log('get answer');
       const pc: RTCPeerConnection = peerInstanceList.current[answerSendID];
       if (!pc) return;
+      console.log('set remote sdp')
       pc.setRemoteDescription(new RTCSessionDescription(sdp));
     },)
 
@@ -406,14 +423,14 @@ export function RoomPage() {
     if (isOpenCamera || isOpenMic) {
       getMyMediaStream(isOpenCamera, isOpenMic)
     }
-    if (!isOpenMic && mediaStream?.getAudioTracks()) {
-      mediaStream.getAudioTracks().forEach((track) => {
+    if (!isOpenMic ) {
+      mediaStream?.getAudioTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
     }
-    if (!isOpenCamera && mediaStream?.getVideoTracks()) {
-      mediaStream.getVideoTracks().forEach((track) => {
+    if (!isOpenCamera) {
+      mediaStream?.getVideoTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
@@ -423,22 +440,29 @@ export function RoomPage() {
   useEffect(() => {
     console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
-    
-      roomInfo.members
-      .filter((m) => m.socketId !== socket.id )
-      .forEach(
-        async (user) => {
-          const pc = peerInstanceList.current[user.socketId];
-          if(mediaStream !== undefined)
-          {
-            mediaStream.getTracks().forEach((track) => {
-              pc.addTrack(track, mediaStream);
-            });
-          }
+      roomInfo.members.filter((member) => member.socketId !== socket.id)
+      .forEach((user)=>
+      {
+        const pc = peerInstanceList.current[user.socketId]
+        if(isOpenCamera)
+        {
+          const [videoTrack] = mediaStream.getVideoTracks();
+          const sender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
+          if(sender  !== undefined)
+          sender?.replaceTrack(mediaStream.getVideoTracks()[0])
         }
+        if(isOpenMic)
+        {
+          const [videoTrack] = mediaStream.getAudioTracks();
+          const sender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
+          if(sender !== undefined)
+          sender?.replaceTrack(mediaStream.getAudioTracks()[0])
+        }
+      }
       )
     }
   }, [mediaStream])
+
 
   if (!searchParams.get('roomCode')) return <PrepairRoom />
   const [modal, modalContextHolder] = Modal.useModal()
