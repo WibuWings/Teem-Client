@@ -33,6 +33,7 @@ import { PAGE_INFO } from '@/constants/page'
 import { Participant } from './components/Participant'
 import { PeerConnectOption } from 'peerjs'
 import { send } from 'process'
+import { getSearchParamsForLocation } from 'react-router-dom/dist/dom'
 
 
 const pc_config = {
@@ -65,10 +66,6 @@ export function RoomPage() {
 
   const [mediaStream, setMediaStream] = useState<MediaStream>()  //local video
 
-  const screenStreamRef = useRef<MediaStream | undefined>() //local stream
-
-  const screenSocketRef = useRef<Socket<any, any> | undefined>() //local share screen socket
-
   const peerInstanceList = useRef<{ [socketId: string]: RTCPeerConnection }>({}) // list peerConnection with orther members
 
   const [streamList, setStreamList] = useState<WebRTCUser[]>([]) // list user in room
@@ -96,10 +93,6 @@ export function RoomPage() {
     ortherSocketId: string,
     name: string
   ) => {
-    if(screenSocketRef && screenSocketRef.current?.id === ortherSocketId)
-    {
-      return;
-    }
     try{
       const pc = new RTCPeerConnection(pc_config)
       pc.onicecandidate = (e) =>{
@@ -127,9 +120,7 @@ export function RoomPage() {
                   })
               )
 			};
-
-      
-
+   
       await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true,
@@ -151,10 +142,9 @@ export function RoomPage() {
         console.log('localstream add');
         media?.getTracks().forEach((track) => {
             pc.addTrack(track, media);
-        })
-        
+        }) 
       })
-		
+
 			return pc;
     }
     catch (e) {
@@ -198,53 +188,33 @@ export function RoomPage() {
     if (!isShareScreen) {
       setIsShareScreen(true)
       try {
-        const screenMedia = await navigator.mediaDevices.getDisplayMedia({
+        const media = await navigator.mediaDevices.getDisplayMedia({
           audio: true,
           video: true,
         })
-        if (!screenSocketRef.current) {
-          screenSocketRef.current = io(API_URL)
-        } else {
-          screenSocketRef.current.connect()
-        }
-
-        screenMedia.getTracks().forEach((track) => {
-          track.onended = () => {
-            console.log('end share screen media')
-            setIsShareScreen(false)
-            screenSocketRef.current?.disconnect()
-          }
-        })
-        screenStreamRef.current = screenMedia
-        await waitApi(2000)
-        joinRoom({
-          roomCode: searchParams.get('roomCode')!,
-          username: roomInfo.members.find((m) => m.socketId === socket.id)?.username + '(Share)',
-          socketId: screenSocketRef.current?.id ?? '',
-        })
-          .unwrap()
-          .then(async (value) => {
-            screenSocketRef.current?.emit(SOCKET_EVENT.EMIT.JOIN_ROOM, {
-              roomCode: value.room.code,
-              socketId: screenSocketRef.current.id,
-            })
-          })
+        setMediaStream(media)
       } catch (err: any) {
         console.log(err.name + ': ' + err.message)
         setIsShareScreen(false)
       }
     } else {
       setIsShareScreen(false)
+      mediaStream?.getAudioTracks().forEach((track) => {
+        track.enabled = false
+        track.stop()
+      })
+      mediaStream?.getVideoTracks().forEach((track) => {
+        track.enabled = false
+        track.stop()
+      })
       console.log('end share screen media')
-      screenStreamRef.current?.getTracks().forEach((track) => track.stop())
-      screenSocketRef.current?.disconnect()
     }
+    setIsOpenCamera(false)
+    setIsOpenMic(false)
   }
   const leaveCall = async () => {
     setIsShareScreen(false)
     Promise.all([
-      screenStreamRef.current?.getTracks()?.forEach((track) => track.stop()),
-      screenSocketRef.current?.disconnect(),
       mediaStream?.getTracks().forEach((track) => track.stop()),
       socket?.disconnect(),
     ])
@@ -271,8 +241,8 @@ export function RoomPage() {
       await pc.setLocalDescription(new RTCSessionDescription(localSdp));
       socket.emit('offer', {
         sdp: localSdp,
-        offerSendID: socket.id,
-        offerSendEmail: '',
+        offerSendID:  socket.id,
+        offerSendName: user.username,
         offerReceiveID: user.socketId,
       });
       notification.info({
@@ -289,11 +259,11 @@ export function RoomPage() {
   const handleGetOffer = async (data: {
     sdp: RTCSessionDescription;
     offerSendID: string;
-    offerSendEmail: string;}
+    offerSendName: string;}
     ) => {
-      const { sdp, offerSendID, offerSendEmail } = data;
+      const { sdp, offerSendID, offerSendName } = data;
 				console.log('get offer');
-				const pc = await createPeerConnection(offerSendID, offerSendEmail);
+				const pc = await createPeerConnection(offerSendID, offerSendName);
 				if (!(pc&&socket)) return;
 				peerInstanceList.current = { ...peerInstanceList.current, [offerSendID]: pc };
 				try {
@@ -327,8 +297,6 @@ export function RoomPage() {
   const handleDisconnect = async (reason: any) => {
     // alert('Disconnect')
     console.log(reason)
-    screenSocketRef.current?.disconnect()
-    screenStreamRef.current?.getTracks()?.forEach((track) => track.stop())
     if (reason === 'io server disconnect' || reason === 'transport close') {
       socket?.connect()
       modal.confirm({
@@ -395,7 +363,6 @@ export function RoomPage() {
       console.log('set remote sdp')
       pc.setRemoteDescription(new RTCSessionDescription(sdp));
     },)
-
     socket.on(
 			'getCandidate',
 			async (data: { candidate: RTCIceCandidateInit; candidateSendID: string }) => {
@@ -416,10 +383,15 @@ export function RoomPage() {
       socket?.off('getAnswer')
       socket?.off('getCandidate')
       socket?.off('disconnect')
+
     }
   }, [socket,handleGetOffer, handleUserConnect, handleUserDisconnected, handleDisconnect])
 
   useEffect(() => {
+    if(isShareScreen)
+    {
+      return;
+    }
     if (isOpenCamera || isOpenMic) {
       getMyMediaStream(isOpenCamera, isOpenMic)
     }
@@ -438,13 +410,27 @@ export function RoomPage() {
   }, [isOpenCamera, isOpenMic])
 
   useEffect(() => {
-    console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
       roomInfo.members.filter((member) => member.socketId !== socket.id)
       .forEach((user)=>
       {
         const pc = peerInstanceList.current[user.socketId]
-        if(isOpenCamera)
+        if(isShareScreen)
+        {
+          const [videoTrack] = mediaStream.getVideoTracks();
+          const videoSender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
+          if(videoSender  !== undefined)
+          videoSender?.replaceTrack(mediaStream.getVideoTracks()[0])
+          if(!mediaStream.getAudioTracks())
+          {
+            const [audioTrack] = mediaStream.getAudioTracks();
+            const audioSender =  pc.getSenders().find((s) => s.track?.kind === audioTrack.kind)
+            if(audioSender !== undefined)
+            audioSender?.replaceTrack(mediaStream.getAudioTracks()[0])
+          }
+        }
+        else{
+          if(isOpenCamera)
         {
           const [videoTrack] = mediaStream.getVideoTracks();
           const sender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
@@ -453,10 +439,11 @@ export function RoomPage() {
         }
         if(isOpenMic)
         {
-          const [videoTrack] = mediaStream.getAudioTracks();
-          const sender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
+          const [audioTrack] = mediaStream.getAudioTracks();
+          const sender =  pc.getSenders().find((s) => s.track?.kind === audioTrack.kind)
           if(sender !== undefined)
           sender?.replaceTrack(mediaStream.getAudioTracks()[0])
+        }
         }
       }
       )
@@ -542,19 +529,9 @@ export function RoomPage() {
                     stream={
                       item.socketId === socket?.id
                         ? mediaStream
-                        : item.socketId === screenSocketRef.current?.id
-                        ? screenStreamRef.current
                         : streamList.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
-                    isTurnOnCamera={
-                      item.socketId === socket?.id
-                        ? isOpenCamera
-                        : item.socketId === screenSocketRef.current?.id
-                        ? isOpenCamera
-                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream !==
-                          undefined
-                    }
                     isYou={item.socketId === socket?.id ? true : false}
                   />
                 )}

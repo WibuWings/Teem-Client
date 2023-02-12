@@ -14,14 +14,12 @@ export function UserFrame<Type>({
   onClickPin,
   stream,
   muted,
-  isTurnOnCamera,
   isYou,
 }: {
   user: Type
   isPin: boolean
   stream?: MediaStream
   muted: boolean
-  isTurnOnCamera: boolean
   isYou: boolean
   onClickPin: (user: Type) => void
 }): ReactElement {
@@ -35,7 +33,6 @@ export function UserFrame<Type>({
 
   useEffect(() => {
     const video = videoRef.current 
-
     if (video) {
       if (!stream ) {
         video.srcObject = null

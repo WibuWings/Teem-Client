@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "author": "Q2O-Labs",
   "license": "MIT",
+  
   "scripts": {
     "dev": "vite",
     "dev:proxy": "vite --mode proxy",
