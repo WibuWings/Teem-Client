@@ -14,6 +14,7 @@ export function UserFrame<Type>({
   onClickPin,
   stream,
   muted,
+  isTurnOnMic,
   isTurnOnCamera,
   isYou,
 }: {
@@ -21,6 +22,7 @@ export function UserFrame<Type>({
   isPin: boolean
   stream?: MediaStream
   muted: boolean
+  isTurnOnMic:boolean
   isTurnOnCamera: boolean
   isYou: boolean
   onClickPin: (user: Type) => void
@@ -35,21 +37,20 @@ export function UserFrame<Type>({
 
   useEffect(() => {
     const video = videoRef.current
-    if (video) {
+    if (videoRef.current) {
       if (!stream) {
-        video.srcObject = null
+        videoRef.current.srcObject = null
       } else {
-        video.srcObject = stream
-        video.autoplay = true
-        video.onloadedmetadata = function (e) {
-          video.play()
+        videoRef.current.srcObject = stream
+        videoRef.current.autoplay = true
+        videoRef.current.onloadedmetadata = function (e) {
+          videoRef.current?.play()
         }
       }
     }
     else 
     {
       console.log(' video ' + (user as User).username + ' undefined')
-
     }
   }, [videoRef.current, stream])
 
@@ -58,6 +59,7 @@ export function UserFrame<Type>({
       className={styles['user-frame']}
       onMouseOver={(e) => {
         setIsShowPinButton(true)
+        console.log(stream)
       }}
       onMouseOut={(e) => {
         setIsShowPinButton(false)
@@ -89,7 +91,7 @@ export function UserFrame<Type>({
       </Space>
       {stream === undefined ||
       stream?.getVideoTracks()?.[0]?.muted ||
-      stream?.getVideoTracks()?.[0]?.readyState === 'ended' ?(
+      stream?.getVideoTracks()?.[0]?.readyState === 'ended' || (!isTurnOnCamera && !isTurnOnMic)?(
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
             className={styles.image}

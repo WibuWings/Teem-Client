@@ -112,20 +112,18 @@ export function RoomPage() {
       });
     });
 
-    newPeerElement.peer.on('call', (call) => {
+    newPeerElement.peer.on('call', async (call) => {
       console.log('on incoming call')
       call.answer(mediaStream) // Answer the call with an A/V stream.
-      call.on('stream', (remoteStream) => {
+      call.on('stream', async (remoteStream) => {
         // Show stream in some <video> element.
+        console.log(remoteStream)
         newPeerElement.remoteStream = remoteStream
-        setStreamList(
-          peerElements
-            .filter((p) => p.remoteStream)
-            .map((p) => ({
-              socketId: p.socketId,
-              remoteStream: p.remoteStream,
-            }))
-        )
+        await setStreamList((oldUser) => oldUser.filter(user => user.socketId !== ortherSocketId)
+        .concat({
+          socketId: ortherSocketId,
+          remoteStream:  remoteStream,
+        }))
       })
     })
     peerElements.push(newPeerElement)
@@ -375,15 +373,29 @@ export function RoomPage() {
         track.stop()
       })
     }
+    if(!isOpenMic  && !isOpenCamera && mediaStream?.getTracks())
+    {
+      console.log('change')
+      mediaStream.getTracks().forEach((track) => {
+        track.enabled = false
+        track.stop()
+      })
+      if (mediaStream && roomInfo.members.length > 1) {
+        peerInstanceList.current.forEach((e) => {
+          e.peer.call(e.socketId + socket.id, mediaStream)
+        })
+      }
+    }
   }, [isOpenCamera, isOpenMic])
 
   useEffect(() => {
     console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
       peerInstanceList.current.forEach((e) => {
-        e.peer.call(e.socketId + socket.id, mediaStream)
+        e.peer.call(e.socketId + socket.id, mediaStream,)
       })
     }
+   
   }, [mediaStream])
 
   if (!searchParams.get('roomCode')) return <PrepairRoom />
@@ -468,13 +480,19 @@ export function RoomPage() {
                         : streamList.find((e) => e.socketId === item.socketId)?.remoteStream
                     }
                     muted={item.socketId === socket?.id}
+                    isTurnOnMic = {
+                      item.socketId === socket?.id
+                      ? isOpenMic
+                      : item.socketId === screenSocketRef.current?.id
+                      ? isOpenMic
+                      : streamList.find((e) => e.socketId === item.socketId)?.remoteStream?.getAudioTracks().length != 0
+                    }
                     isTurnOnCamera={
                       item.socketId === socket?.id
                         ? isOpenCamera
                         : item.socketId === screenSocketRef.current?.id
                         ? isOpenCamera
-                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream !==
-                          undefined
+                        : streamList.find((e) => e.socketId === item.socketId)?.remoteStream?.getVideoTracks().length != 0
                     }
                     isYou={item.socketId === socket?.id ? true : false}
                   />
