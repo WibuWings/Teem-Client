@@ -84,17 +84,14 @@ export function RoomPage() {
       }
     }
   }, [roomInfo])
-  const pushNewPeer = (
+  const pushNewPeer =  (
     peerElements: PeerElement[],
     selfSocketId: string,
     ortherSocketId: string
   ) => {
     const peer = new Peer(selfSocketId + ortherSocketId)
     const conn = peer.connect(ortherSocketId);
-    conn.on("open", () => {
-      conn.send("hi!");
-
-    });
+  
     peer.on('open', (id) => {
       console.log(`peer ${id} opened`)
     })
@@ -117,14 +114,14 @@ export function RoomPage() {
       call.answer(mediaStream) // Answer the call with an A/V stream.
       call.on('stream', async (remoteStream) => {
         // Show stream in some <video> element.
-        console.log(remoteStream)
         newPeerElement.remoteStream = remoteStream
-        await setStreamList((oldUser) => oldUser.filter(user => user.socketId !== ortherSocketId)
+        await setStreamList((oldUsers) => (oldUsers.filter((user) => user.socketId !== ortherSocketId)
         .concat({
           socketId: ortherSocketId,
           remoteStream:  remoteStream,
-        }))
-      })
+        })))
+      },
+      )
     })
     peerElements.push(newPeerElement)
     return newPeerElement
@@ -238,28 +235,32 @@ export function RoomPage() {
   // peer event handler
   const handleNewUserJoined = async (user: User) => {
     if (user.socketId !== screenSocketRef.current?.id) {
-      if (user.username.includes('Share')) {
+      if (user.username.includes('(Share)')) {
         setIsShareScreen(false)
         screenStreamRef.current?.getTracks().forEach((track) => track.stop())
         screenSocketRef.current?.disconnect()
       }
       notification.info({
-        message: user.username.includes('Share')
+        message: user.username.includes('(Share)')
           ? `${user.username} shared screen`
           : `${user.username} joined room`,
       })
       dispatch(pushNewUserToRoom(user))
 
-      const newPeerElement = pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
+      const newPeerElement =  pushNewPeer(peerInstanceList.current, socket.id, user.socketId)
 
-      if (mediaStream) {
-        await waitApi(2000)
+      if (isOpenCamera || isOpenMic) {
+        const media = await navigator.mediaDevices.getUserMedia({
+          audio: isOpenMic,
+          video: isOpenCamera,
+        })
         console.log('calling')
-        newPeerElement.peer.call(user.socketId + socket.id, mediaStream)
+        await waitApi(2000)
+        newPeerElement.peer.call(user.socketId + socket.id, media)
       }
       if (screenStreamRef.current) {
-        await waitApi(2000)
         console.log('calling')
+        await waitApi(2000)
         newPeerElement.peer.call(user.socketId + socket.id, screenStreamRef.current)
       }
     }
@@ -358,44 +359,42 @@ export function RoomPage() {
   }, [socket, handleNewUserJoined, handleUserDisconnected, handleDisconnect])
 
   useEffect(() => {
-    if (isOpenCamera || isOpenMic) {
-      getMyMediaStream(isOpenCamera, isOpenMic)
-    }
-    if (!isOpenMic && mediaStream?.getAudioTracks()) {
+    if (mediaStream?.getAudioTracks()) {
       mediaStream.getAudioTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
     }
-    if (!isOpenCamera && mediaStream?.getVideoTracks()) {
+    if (mediaStream?.getVideoTracks()) {
       mediaStream.getVideoTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
     }
-    if(!isOpenMic  && !isOpenCamera && mediaStream?.getTracks())
+    if(mediaStream?.getTracks())
     {
-      console.log('change')
       mediaStream.getTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
-      if (mediaStream && roomInfo.members.length > 1) {
-        peerInstanceList.current.forEach((e) => {
-          e.peer.call(e.socketId + socket.id, mediaStream)
-        })
-      }
     }
-  }, [isOpenCamera, isOpenMic])
-
-  useEffect(() => {
-    console.log('media change')
     if (mediaStream && roomInfo.members.length > 1) {
       peerInstanceList.current.forEach((e) => {
         e.peer.call(e.socketId + socket.id, mediaStream,)
       })
     }
-   
+    setMediaStream(undefined)
+    if (isOpenCamera || isOpenMic) {
+      getMyMediaStream(isOpenCamera, isOpenMic)
+    }
+  }, [isOpenCamera, isOpenMic])
+
+  useEffect(() => {
+    if (mediaStream && roomInfo.members.length > 1) {
+      peerInstanceList.current.forEach((e) => {
+        e.peer.call(e.socketId + socket.id, mediaStream,)
+      })
+    }
   }, [mediaStream])
 
   if (!searchParams.get('roomCode')) return <PrepairRoom />

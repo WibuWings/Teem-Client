@@ -7,6 +7,7 @@ import styles from './style.module.less'
 import { getResourceUrl } from '@/transforms/url'
 import { PAGE_INFO } from '@/constants/page'
 import { User } from '../../model'
+import { waitApi } from '@/utils/async'
 
 export function UserFrame<Type>({
   user,
@@ -30,13 +31,27 @@ export function UserFrame<Type>({
   const params = useParams()
 
   // auto resize video
-  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const [isShowPinButton, setIsShowPinButton] = useState(false)
+  const [rerender, setRerender] = useState(false)
 
+  
+  useEffect(()=>{
+    console.log('set render')
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+      if (stream) {    
+        videoRef.current.srcObject = stream
+        videoRef.current.autoplay = true
+        videoRef.current.onloadedmetadata = function (e) {
+          videoRef.current?.play()
+        }
+      }
+    }
+  },[rerender])
 
   useEffect(() => {
-    const video = videoRef.current
     if (videoRef.current) {
       if (!stream) {
         videoRef.current.srcObject = null
@@ -48,22 +63,12 @@ export function UserFrame<Type>({
         }
       }
     }
-    else 
-    {
-      console.log(' video ' + (user as User).username + ' undefined')
-    }
+    setRerender(!rerender)
   }, [videoRef.current, stream])
 
   return (
     <div
       className={styles['user-frame']}
-      onMouseOver={(e) => {
-        setIsShowPinButton(true)
-        console.log(stream)
-      }}
-      onMouseOut={(e) => {
-        setIsShowPinButton(false)
-      }}
       style={{
         alignItems: 'center',
         justifyItems: 'center',
@@ -74,7 +79,7 @@ export function UserFrame<Type>({
       <Space
         style={{
           position: 'absolute',
-          visibility: isShowPinButton ? 'visible' : 'hidden',
+          visibility: true ? 'visible' : 'hidden',
           zIndex: 1000,
           top: '20px',
           left: '20px',
@@ -91,7 +96,8 @@ export function UserFrame<Type>({
       </Space>
       {stream === undefined ||
       stream?.getVideoTracks()?.[0]?.muted ||
-      stream?.getVideoTracks()?.[0]?.readyState === 'ended' || (!isTurnOnCamera && !isTurnOnMic)?(
+      stream?.getVideoTracks()?.[0]?.readyState === 'ended' || 
+      (!isTurnOnCamera && !isTurnOnMic) ?(
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
           <img
             className={styles.image}
