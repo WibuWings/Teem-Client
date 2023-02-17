@@ -140,9 +140,17 @@ export function RoomPage() {
           })
         }
         console.log('localstream add');
-        media?.getTracks().forEach((track) => {
+        if(isShareScreen)
+        {
+          mediaStream?.getTracks().forEach((track) => {
+            pc.addTrack(track, media);
+          }) 
+        }
+        else{
+          media?.getTracks().forEach((track) => {
             pc.addTrack(track, media);
         }) 
+        }
       })
 
 			return pc;
@@ -197,6 +205,8 @@ export function RoomPage() {
         console.log(err.name + ': ' + err.message)
         setIsShareScreen(false)
       }
+      setIsOpenCamera(false)
+      setIsOpenMic(false)
     } else {
       setIsShareScreen(false)
       mediaStream?.getAudioTracks().forEach((track) => {
@@ -209,8 +219,6 @@ export function RoomPage() {
       })
       console.log('end share screen media')
     }
-    setIsOpenCamera(false)
-    setIsOpenMic(false)
   }
   const leaveCall = async () => {
     setIsShareScreen(false)
@@ -388,33 +396,40 @@ export function RoomPage() {
   }, [socket,handleGetOffer, handleUserConnect, handleUserDisconnected, handleDisconnect])
 
   useEffect(() => {
-    if(isShareScreen)
+    if(isShareScreen )
     {
-      return;
+      notification.info({
+        message: "Change share screen"
+      })
+      if(!isOpenCamera && !isOpenMic) return
+      setIsShareScreen(false)
     }
-    if (isOpenCamera || isOpenMic) {
-      getMyMediaStream(isOpenCamera, isOpenMic)
-    }
-    if (!isOpenMic ) {
+   
+    if (mediaStream?.getAudioTracks() ) {
       mediaStream?.getAudioTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
     }
-    if (!isOpenCamera) {
+    if (mediaStream?.getVideoTracks()) {
       mediaStream?.getVideoTracks().forEach((track) => {
         track.enabled = false
         track.stop()
       })
+    }
+    setMediaStream(undefined)
+    if (isOpenCamera || isOpenMic) {
+      getMyMediaStream(isOpenCamera, isOpenMic)
     }
   }, [isOpenCamera, isOpenMic])
 
   useEffect(() => {
     if (mediaStream && roomInfo.members.length > 1) {
       roomInfo.members.filter((member) => member.socketId !== socket.id)
-      .forEach((user)=>
+      .forEach(async (user)=>
       {
         const pc = peerInstanceList.current[user.socketId]
+        
         if(isShareScreen)
         {
           const [videoTrack] = mediaStream.getVideoTracks();
@@ -431,19 +446,19 @@ export function RoomPage() {
         }
         else{
           if(isOpenCamera)
-        {
-          const [videoTrack] = mediaStream.getVideoTracks();
-          const sender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
-          if(sender  !== undefined)
-          sender?.replaceTrack(mediaStream.getVideoTracks()[0])
-        }
-        if(isOpenMic)
-        {
-          const [audioTrack] = mediaStream.getAudioTracks();
-          const sender =  pc.getSenders().find((s) => s.track?.kind === audioTrack.kind)
-          if(sender !== undefined)
-          sender?.replaceTrack(mediaStream.getAudioTracks()[0])
-        }
+          {
+            const [videoTrack] = mediaStream.getVideoTracks();
+            const sender =  pc.getSenders().find((s) => s.track?.kind === videoTrack.kind)
+            if(sender  !== undefined)
+            sender?.replaceTrack(mediaStream.getVideoTracks()[0])
+          }
+          if(isOpenMic)
+          {
+            const [audioTrack] = mediaStream.getAudioTracks();
+            const sender =  pc.getSenders().find((s) => s.track?.kind === audioTrack.kind)
+            if(sender !== undefined)
+            sender?.replaceTrack(mediaStream.getAudioTracks()[0])
+          }
         }
       }
       )
